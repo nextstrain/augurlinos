@@ -1,5 +1,12 @@
 ## Augurlinos: a collection of modules for molecular epidemiology
 
+#### Quickstart
+Put a `zika.fasta` into `zika/data` and run
+
+```
+snakemake --snakefile zika/zika_snake export
+```
+
 ### Requirments
   * python 2.7
   * numpy, biopython, scipy
