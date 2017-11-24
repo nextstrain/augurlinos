@@ -1,0 +1,64 @@
+rule prepare:
+	input:
+		"zika/data/zika.fasta"
+	output:
+		"zika/results/orig.fasta",
+		"zika/results/meta.tsv"
+	shell:
+		"python src/prepare.py --sequences zika/data/zika.fasta --path zika"
+
+
+rule align:
+	input:
+		"zika/results/orig.fasta"
+	output:
+		"zika/results/nuc_aln.fasta",
+		"zika/results/ref_nuc_aln.fasta"
+	shell:
+		"python src/align.py --path zika &&"
+		"python src/map_to_reference.py --path zika --reference H/PF/2013"
+
+rule tree:
+	input:
+		"zika/results/ref_nuc_aln.fasta"
+	output:
+		"zika/results/tree.nwk",
+		"zika/results/tree.tsv",
+		"zika/results/tree_nuc_aln.fasta"
+	shell:
+		"python src/build_tree.py --path zika --timetree --nthreads 2"
+
+
+rule translate:
+	input:
+		"zika/results/tree_nuc_aln.fasta",
+		"zika/results/ref_nuc_aln.fasta"
+	output:
+		"zika/results/tree_NS1_aln.fasta"
+	shell:
+		"python src/translate.py --path zika --reference zika/data/zika_outgroup.gb &&"
+		"python src/assign_amino_acid_mutations.py --path zika"
+
+rule mugration:
+	input:
+		"zika/results/tree.nwk"
+	output:
+		"zika/results/region_gtr.txt",
+		"zika/results/country_gtr.txt"
+	shell:
+		"python src/mugration.py --path zika --field country  &&"
+		"python src/mugration.py --path zika --field region"
+
+rule export:
+	input:
+		"zika/results/region_gtr.txt",
+		"zika/results/country_gtr.txt",
+		"zika/results/tree.tsv",
+		"zika/results/tree_NS1_aln.fasta"
+	output:
+		"zika/auspice/zika_tree.json",
+		"zika/auspice/zika_sequence.json",
+		"zika/auspice/zika_entropy.json"
+	shell:
+		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"
+
