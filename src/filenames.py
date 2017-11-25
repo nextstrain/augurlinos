@@ -1,3 +1,20 @@
+######################################
+# input files
+######################################
+
+def dropped_strains_file_name(path):
+    return path+'/data/'+'dropped_strains.txt'
+
+
+def color_maps(path):
+    return path+'/data/'+'color.tsv'
+
+
+
+######################################
+# process files
+######################################
+
 def meta_file_name(path):
     return path+'/results/'+'meta.tsv'
 

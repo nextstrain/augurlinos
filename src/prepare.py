@@ -2,7 +2,7 @@ from __future__ import division, print_function
 import os
 from Bio import SeqIO
 import pandas as pd
-from filenames import meta_file_name, sequence_input
+from filenames import meta_file_name, sequence_input, dropped_strains_file_name
 from util import write_fasta, write_sequence_meta_data, generic_argparse
 
 def parse_fasta(fname, fields, sep='|'):
@@ -24,23 +24,38 @@ def parse_fasta(fname, fields, sep='|'):
 
     return sequences, meta_data
 
+def get_dropped_strains(path):
+    fname = dropped_strains_file_name(path)
+    dropped_strains = []
+    if os.path.isfile(fname):
+        with open(fname) as ifile:
+            for line in ifile:
+                fields = line.strip().split('#')
+                if fields[0].strip():
+                    dropped_strains.append(fields[0].strip())
+    else:
+        print("File with dropped strains not found. Looking for", fname)
+
+    return dropped_strains
+
+
 
 if __name__ == '__main__':
     parser = generic_argparse("parse fasta file and separate meta_data into table")
     parser.add_argument("--sequences", required=True, type=str,
                         help = "file with input sequences as fasta")
     args = parser.parse_args()
-
-    if not args.path:
-        path = '.'.join(os.path.basename(args.sequences).split('.')[:-1])
-    else:
-        path = args.path
+    path = args.path
 
     header_fields = {0:'strain', 2:'accession', 3:'date', 4:'region', 5:'country',
                     6:'division', 8:'db', 10:'authors', 11:'url', 12:'title',
                     13: 'journal', 14: 'paper_url'}
 
     sequences, meta = parse_fasta(args.sequences, header_fields)
+
+    dropped_strains = get_dropped_strains(path)
+    sequences = {k:v for k,v in sequences.items() if k not in dropped_strains}
+    meta = {k:v for k,v in meta.items() if k not in dropped_strains}
 
     meta_data = pd.DataFrame(meta.values(), columns = [header_fields[i]
                                     for i in sorted(header_fields.keys())])

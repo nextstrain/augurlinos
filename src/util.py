@@ -19,6 +19,7 @@ def write_fasta(seqs, fname, ungap=False):
             seq.name=seq.id
             if ungap:
                 seq.seq.ungap('-')
+            seq.seq.upper()
             SeqIO.write(seq, ofile, format='fasta')
 
 

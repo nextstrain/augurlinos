@@ -62,3 +62,7 @@ rule export:
 	shell:
 		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"
 
+rule clean:
+	shell:
+		"rm -r zika/results &&"
+		"rm -r zika/auspice"

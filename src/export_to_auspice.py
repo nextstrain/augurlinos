@@ -93,6 +93,55 @@ def export_sequence_json(T, path, prefix):
     write_json(elems, fname, indent=indent)
 
 
+def export_metadata_json(T, path, prefix, indent):
+    print("Writing out metaprocess")
+    meta_json = {}
+
+    meta_json["virus_count"] = T.count_terminals()
+    from datetime.date import today
+    meta_json["updated"] = today().strftime('%Y-%m-%d')
+    meta_json["author_info"] = {}
+    meta_json["seq_author_map"] = {}
+
+
+    # join up config color options with those in the input JSONs.
+    col_opts = process.config["auspice"]["color_options"]
+    if process.colors:
+        for trait, col in process.colors.iteritems():
+            if trait in col_opts:
+                col_opts[trait]["color_map"] = col
+            else:
+                process.log.warn("{} in colors (input JSON) but not auspice/color_options. Ignoring".format(trait))
+
+    meta_json["color_options"] = col_opts
+    if "date_range" in process.config["auspice"]:
+        meta_json["date_range"] = process.config["auspice"]["date_range"]
+    if "analysisSlider" in process.config["auspice"]:
+        meta_json["analysisSlider"] = process.config["auspice"]["analysisSlider"]
+    meta_json["panels"] = process.config["auspice"]["panels"]
+    meta_json["updated"] = time.strftime("X%d %b %Y").replace('X0','X').replace('X','')
+    meta_json["title"] = process.info["title"]
+    meta_json["maintainer"] = process.info["maintainer"]
+    meta_json["filters"] = process.info["auspice_filters"]
+
+    if "defaults" in process.config["auspice"]:
+        meta_json["defaults"] = process.config["auspice"]["defaults"]
+
+    try:
+        from pygit2 import Repository, discover_repository
+        current_working_directory = os.getcwd()
+        repository_path = discover_repository(current_working_directory)
+        repo = Repository(repository_path)
+        commit_id = repo[repo.head.target].id
+        meta_json["commit"] = str(commit_id)
+    except ImportError:
+        meta_json["commit"] = "unknown"
+    if len(process.config["auspice"]["controls"]):
+        meta_json["controls"] = process.make_control_json(process.config["auspice"]["controls"])
+    meta_json["geo"] = process.lat_longs
+    write_json(meta_json, prefix+'_meta.json')
+
+
 def export_diversity(path, prefix, reference):
     '''
     write the alignment entropy of each alignment (nucleotide and translations) to file
@@ -110,6 +159,9 @@ def export_diversity(path, prefix, reference):
             entropy_json[feat] = {'pos':[x for x in genes[feat]][::3],
                                   'codon':range(n), 'val':S}
     write_json(entropy_json, diversity_json(path, prefix), indent=indent)
+
+
+
 
 
 if __name__ == '__main__':
