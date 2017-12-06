@@ -57,7 +57,7 @@ rule export:
 		"zika/results/tree_NS1_aln.fasta"
 	output:
 		"zika/auspice/zika_tree.json",
-		"zika/auspice/zika_sequence.json",
+		"zika/auspice/zika_sequences.json",
 		"zika/auspice/zika_entropy.json"
 	shell:
 		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"

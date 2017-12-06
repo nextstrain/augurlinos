@@ -57,7 +57,7 @@ def mugration_model(path, field):
 #######################################
 
 def sequence_json(path,prefix):
-    return path+'/auspice/'+prefix+'_sequence.json'
+    return path+'/auspice/'+prefix+'_sequences.json'
 
 def tree_json(path, prefix):
     return path+'/auspice/'+prefix+'_tree.json'
