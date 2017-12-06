@@ -16,7 +16,7 @@ rule align:
 		"zika/results/ref_nuc_aln.fasta"
 	shell:
 		"python src/align.py --path zika &&"
-		"python src/map_to_reference.py --path zika --reference H/PF/2013"
+		"python src/map_to_reference.py --path zika --reference PF13/251013_18"
 
 rule tree:
 	input:
