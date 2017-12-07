@@ -58,10 +58,11 @@ def timetree(tree=None, aln=None, seq_meta=None, keeproot=False,
     tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal,
            resolve_polytomies=resolve_polytomies, max_iter=max_iter, **kwarks)
 
-    if confidence:
-        for n in T.find_clades():
-            # get 90% max posterior region)
-            n.numdate_confidence = tuple(tt.get_max_posterior_region(n, 0.9))
+    for n in T.find_clades():
+        n.num_date = n.numdate # treetime convention is different from augur...
+        # get 90% max posterior region)
+        if confidence:
+            n.num_date_confidence = list(tt.get_max_posterior_region(n, 0.9))
     return tt
 
 
@@ -101,6 +102,8 @@ if __name__ == '__main__':
                        help='infer time stamped phylogeny')
     parser.add_argument('--confidence', action='store_true', default=False,
                        help='estimate confidence intervals for node timing')
+    parser.add_argument('--Tc', type=float, default=0.0,
+                       help='coalescence time scale measured in substitution rate units')
     parser.add_argument('--keeproot', action='store_true', default=False,
                         help="don't reroot the tree")
     args = parser.parse_args()
@@ -115,11 +118,11 @@ if __name__ == '__main__':
 
     if args.timetree:
         tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
-                      seq_meta=meta, reroot=None if args.keeproot else 'best')
+                      seq_meta=meta, reroot=None if args.keeproot else 'best',Tc=args.Tc)
         T = tt.tree
-        fields.extend(['mutations', 'mutation_length', 'numdate', 'clock_length'])
+        fields.extend(['mutations', 'mutation_length', 'num_date', 'clock_length'])
         if args.confidence:
-            fields.append('numdate_confidence')
+            fields.append('num_date_confidence')
     elif args.ancestral:
         tt = ancestral_sequence_inference(tree=T, aln=ref_alignment(path))
         T = tt.tree

@@ -37,20 +37,28 @@ def write_sequence_meta_data(path, df):
 
 def read_tree_meta_data(path):
     from filenames import tree_meta_file_name
-    import pandas as pd
-    df = pd.read_csv(tree_meta_file_name(path), sep='\t')
-    return {m[0]:m.to_dict() for mi, m in df.iterrows()}
+    # import pandas as pd
+    # df = pd.read_csv(tree_meta_file_name(path), sep='\t')
+    # return {m[0]:m.to_dict() for mi, m in df.iterrows()}
+    import json
+    with open(tree_meta_file_name(path)) as ifile:
+        meta = json.load(ifile)
+    return meta
 
 
 def write_tree_meta_data(path, meta_dic):
     from filenames import tree_meta_file_name
-    import pandas as pd
-    header = set()
-    for m in meta_dic.values():
-        header.update(m.keys())
-    header = sorted(header, key=lambda x:x!='name')
-    df = pd.DataFrame(meta_dic.values(), columns = header)
-    df.to_csv(tree_meta_file_name(path), sep='\t', index=False)
+    # import pandas as pd
+    # header = set()
+    # for m in meta_dic.values():
+    #     header.update(m.keys())
+    # header = sorted(header, key=lambda x:x!='name')
+    # df = pd.DataFrame(meta_dic.values(), columns = header)
+    # df.to_csv(tree_meta_file_name(path), sep='\t', index=False)
+    import json
+    with open(tree_meta_file_name(path), 'w') as ofile:
+        json.dump(meta_dic, ofile)
+
 
 
 def collect_tree_meta_data(T, fields, meta=None):

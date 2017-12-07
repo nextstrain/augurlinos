@@ -26,7 +26,7 @@ rule tree:
 		"zika/results/tree.tsv",
 		"zika/results/tree_nuc_aln.fasta"
 	shell:
-		"python src/build_tree.py --path zika --timetree --nthreads 2"
+		"python src/build_tree.py --path zika --timetree --nthreads 2 --confidence"
 
 
 rule translate:
@@ -46,8 +46,8 @@ rule mugration:
 		"zika/results/region_gtr.txt",
 		"zika/results/country_gtr.txt"
 	shell:
-		"python src/mugration.py --path zika --field country  &&"
-		"python src/mugration.py --path zika --field region"
+		"python src/mugration.py --path zika --field country --confidence  &&"
+		"python src/mugration.py --path zika --field region  --confidence"
 
 rule export:
 	input:

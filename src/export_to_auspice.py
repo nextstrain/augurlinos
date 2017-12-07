@@ -9,7 +9,7 @@ from Bio import Phylo
 def tree_to_json(node, extra_attr = []):
     tree_json = {}
     str_attr = ['strain']
-    num_attr = ['numdate']
+    num_attr = ['num_date']
     if hasattr(node, 'name'):
         tree_json['strain'] = node.name
 
@@ -32,8 +32,7 @@ def tree_to_json(node, extra_attr = []):
             if hasattr(node, prop):
                 tree_json[prop] = node.__getattribute__(prop)
 
-    tree_json['num_date'] = tree_json['numdate']
-    tree_json['tvalue'] = tree_json['numdate']
+    tree_json['tvalue'] = tree_json['num_date']
     if node.clades:
         tree_json["children"] = []
         for ch in node.clades:
@@ -60,12 +59,9 @@ def attach_tree_meta_data(T, node_meta):
                     if muts:
                         n.aa_muts[prot] = muts
             elif field in ['branch_length', 'mutation_length', 'clock_length',
-                           'clade']:
+                           'clade', 'num_date']:
                 n.__setattr__(field, val)
                 n.attr[field] = val
-            elif field in ['numdate']:
-                n.__setattr__('numdate', val)
-                n.attr['num_date'] = val
             else:
                 n.attr[field] = val
 

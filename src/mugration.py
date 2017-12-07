@@ -1,10 +1,10 @@
 import numpy as np
 from filenames import tree_newick, mugration_model
 from util import read_sequence_meta_data, read_tree_meta_data, write_tree_meta_data
-from util import collect_tree_meta_data, generic_argparse
+from util import collect_tree_meta_data, generic_argparse, TINY
 
 
-def mugration_inference(tree=None, seq_meta=None, field='country',
+def mugration_inference(tree=None, seq_meta=None, field='country', confidence=True,
                         infer_gtr=True, root_state=None, missing='?'):
         from treetime import GTR
         from Bio.Align import MultipleSeqAlignment
@@ -55,6 +55,19 @@ def mugration_inference(tree=None, seq_meta=None, field='country',
 
             for node in tt.tree.find_clades():
                 node.__setattr__(field, alphabet[node.sequence[0]])
+
+            if confidence:
+                for node in tt.tree.find_clades():
+                    pdis = node.marginal_profile[0]
+                    S = -np.sum(pdis*np.log(pdis+TINY))
+
+                    marginal = [(alphabet[tt.gtr.alphabet[i]], pdis[i]) for i in range(len(tt.gtr.alphabet))]
+                    marginal.sort(key=lambda x: x[1], reverse=True) # sort on likelihoods
+                    marginal = [(a, b) for a, b in marginal if b > 0.01][:4] #only take stuff over 1% and the top 4 elements
+                    conf = {a:b for a,b in marginal}
+                    node.__setattr__(field + "_entropy", S)
+                    node.__setattr__(field + "_confidence", conf)
+
             return tt, alphabet
 
 
@@ -63,6 +76,8 @@ if __name__ == '__main__':
     parser = generic_argparse("Infer ancestral states for a discrete character")
     parser.add_argument('--field', default='region',
                         help='meta data field to perform discrete reconstruction on')
+    parser.add_argument('--confidence',action="store_true",
+                        help='record the distribution of subleading mugration states')
 
     args = parser.parse_args()
     path = args.path
@@ -71,8 +86,13 @@ if __name__ == '__main__':
     seq_meta = read_sequence_meta_data(path)
     tree_meta = read_tree_meta_data(path)
 
-    tt, alphabet = mugration_inference(tree=T, seq_meta=seq_meta, field=args.field)
-    collect_tree_meta_data(tt.tree, [args.field], meta=tree_meta)
+    tt, alphabet = mugration_inference(tree=T, seq_meta=seq_meta,
+                        field=args.field, confidence=args.confidence)
+    if args.confidence:
+        fields = [args.field, args.field+'_confidence', args.field + '_entropy']
+    else:
+        fields = [args.field]
+    collect_tree_meta_data(tt.tree, fields, meta=tree_meta)
     write_tree_meta_data(path, tree_meta)
 
     with open(mugration_model(path, args.field),'w') as ofile:
