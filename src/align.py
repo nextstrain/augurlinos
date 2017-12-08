@@ -17,3 +17,9 @@ if __name__ == '__main__':
         os.system("mafft --anysymbol --thread %d %s 1> %s 2>mafft_stderr"%(args.nthreads, in_file, out_file))
     else:
         print('not implemented')
+
+    from Bio import AlignIO
+    aln = AlignIO.read(out_file, 'fasta')
+    for seq in aln:
+        seq.seq = seq.seq.upper()
+    AlignIO.write(aln, out_file, 'fasta')

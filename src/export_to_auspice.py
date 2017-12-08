@@ -9,7 +9,7 @@ from Bio import Phylo
 def tree_to_json(node, extra_attr = []):
     tree_json = {}
     str_attr = ['strain']
-    num_attr = ['numdate']
+    num_attr = ['num_date']
     if hasattr(node, 'name'):
         tree_json['strain'] = node.name
 
@@ -32,6 +32,7 @@ def tree_to_json(node, extra_attr = []):
             if hasattr(node, prop):
                 tree_json[prop] = node.__getattribute__(prop)
 
+    tree_json['tvalue'] = tree_json['num_date']
     if node.clades:
         tree_json["children"] = []
         for ch in node.clades:
@@ -41,18 +42,30 @@ def tree_to_json(node, extra_attr = []):
 
 def attach_tree_meta_data(T, node_meta):
     def parse_mutations(muts):
-        return muts if type(muts)==str else ""
+        return muts.split(',') if type(muts)==str else ""
 
     for n in T.find_clades(order='preorder'):
         n.attr={}
+        n.aa_muts={}
         for field, val in node_meta[n.name].items():
             if 'mutations' in field:
-                n.__setattr__(field, parse_mutations(val))
+                if field=='mutations':
+                    muts = parse_mutations(val)
+                    if muts:
+                        n.__setattr__('muts', muts)
+                else:
+                    prot = '_'.join(field.split('_')[:-1])
+                    muts = parse_mutations(val)
+                    if muts:
+                        n.aa_muts[prot] = muts
             elif field in ['branch_length', 'mutation_length', 'clock_length',
-                           'clade', 'numdate']:
+                           'clade', 'num_date']:
                 n.__setattr__(field, val)
+                n.attr[field] = val
             else:
                 n.attr[field] = val
+
+
 
     T.root.attr['div']=0
     for n in T.get_nonterminals(order='preorder'):
@@ -64,7 +77,7 @@ def attach_tree_meta_data(T, node_meta):
 
 def export_sequence_json(T, path, prefix):
     from Bio import SeqIO
-    plain_export = 0.2
+    plain_export = 0.99
     indent = None
 
     elems = {'root':{}}
@@ -82,9 +95,9 @@ def export_sequence_json(T, path, prefix):
             nseq = seqs[node.name]
             if hasattr(node, "clade"):
                 differences = {pos:state for pos, (state, ancstate) in
-                            enumerate(zip(seq, elems['root'][gene]))
+                            enumerate(zip(nseq, elems['root'][gene]))
                             if state!=ancstate}
-                if plain_export*len(differences)<=len(seq):
+                if len(differences)<=plain_export*len(seq):
                     elems[node.clade][gene] = differences
                 else:
                     elems[node.clade][gene] = seq
@@ -161,6 +174,16 @@ def export_diversity(path, prefix, reference):
     write_json(entropy_json, diversity_json(path, prefix), indent=indent)
 
 
+def tree_layout(T):
+    yval=T.count_terminals()
+    for n in T.find_clades(order='postorder'):
+        if n.is_terminal():
+            n.yvalue=yval
+            yval-=1
+        else:
+            child_yvalues = [c.yvalue for c in n]
+            n.yvalue=0.5*(np.min(child_yvalues)+np.max(child_yvalues))
+        n.xvalue = n.attr['div']
 
 
 
@@ -178,7 +201,8 @@ if __name__ == '__main__':
     seq_meta = read_sequence_meta_data(path)
     tree_meta = read_tree_meta_data(path)
     attach_tree_meta_data(T, tree_meta)
-    fields_to_export = tree_meta.values()[0].keys()+["attr"]
+    tree_layout(T)
+    fields_to_export = tree_meta.values()[0].keys()+["tvalue","yvalue", "xvalue", "attr","muts", "aa_muts"]
     tjson = tree_to_json(T.root, extra_attr=fields_to_export)
     write_json(tjson, tree_json(path, args.prefix))
 
