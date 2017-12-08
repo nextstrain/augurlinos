@@ -10,11 +10,29 @@ def color_maps(path):
     return path+'/data/'+'color.tsv'
 
 
+#EBH 29 Nov 17
+def orig_meta_file_name(path):
+    return path+'/data/'+'meta.tsv'
 
 ######################################
 # process files
 ######################################
 
+#EBH 29 Nov 17
+def recode_gzvcf_name(path):
+    return path+'/results/'+'seqs.vcf.gz'
+
+
+#EBH 29 Nov 17
+def ref_fasta(path):
+    return path+'/results/'+'ref.fasta'
+    
+
+#EBH 30 Nov 17
+def var_site_alignment(path):
+    return path+'/results/'+'var_sites.fasta'
+    
+    
 def meta_file_name(path):
     return path+'/results/'+'meta.tsv'
 
@@ -38,6 +56,11 @@ def ref_alignment(path, prot='nuc'):
 def tree_sequence_alignment(path, prot='nuc'):
     return path+'/results/'+'tree_%s_aln.fasta'%prot
 
+    
+#EBH 7 Dec 17
+def tree_vcf_alignment(path, prot='nuc'):
+    return path+'/results/'+'tree_%s_aln.vcf'%prot
+    
 
 def tree_newick(path):
     return path+'/results/'+'tree.nwk'
