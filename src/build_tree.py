@@ -180,22 +180,18 @@ if __name__ == '__main__':
         #by iqtree/raxml/fasttree  ("var_site_alignment(path)")
         write_out_variable_fasta(compress_seq, path)
     
+    if args.vcf:
+        treebuild_align = var_site_alignment(path)
+    else:
+        treebuild_align = ref_alignment(path)
+    
     if args.raxml:
-        if args.vcf:
-            T = build_raxml(var_site_alignment(path), tree_newick(path), path)
-        else:
-            T = build_raxml(ref_alignment(path), tree_newick(path), path)
+        T = build_raxml(treebuild_align, tree_newick(path), path)
     elif args.iqtree:
-        if args.vcf:
-            T = build_iqtree(var_site_alignment(path), tree_newick(path))
-        else:
-            T = build_iqtree(ref_alignment(path), tree_newick(path))
+        T = build_iqtree(treebuild_align, tree_newick(path))
     else: #use fasttree
-        if args.vcf:
-            T = build_fasttree(var_site_alignment(path), tree_newick(path))
-        else:
-            T = build_fasttree(ref_alignment(path), tree_newick(path))
-            
+        T = build_fasttree(treebuild_align, tree_newick(path))
+
     meta = read_sequence_meta_data(path)
     fields = ['branchlength', 'clade']
 
