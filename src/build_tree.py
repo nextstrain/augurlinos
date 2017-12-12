@@ -107,7 +107,7 @@ def export_sequence_fasta(T, path):
     fname = tree_sequence_alignment(path, 'nuc')
     seqs = [SeqRecord(Seq(''.join(T.root.sequence)), name='root', id='root')]
     for node in T.find_clades():
-        seqs.append(SeqRecord(Seq(''.join(node.sequence)), name=node.name, id=node.name))
+        seqs.append(SeqRecord(Seq(''.join(node.sequence)), description='', name=node.name, id=node.name))
     AlignIO.write(MultipleSeqAlignment(seqs), fname, 'fasta')
 
 def export_sequence_VCF(tt, path):

@@ -20,7 +20,7 @@ rule tree:
 	output:
 		"tb/results/tree.nwk",
 		"tb/results/tree.tsv",
-		"tb/results/seq_gtr.txt"
+		"tb/results/seq_gtr.txt",
 		"tb/results/tree_nuc_aln.vcf"
 	shell:
 		"python src/build_tree.py --path tb --timetree --iqtree --vcf --nthreads 2"
