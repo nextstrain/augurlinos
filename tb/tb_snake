@@ -1,0 +1,65 @@
+rule prepare:
+	input:
+		"tb/data/meta.tsv",
+		"tb/data/dropped_strains.txt",
+		gzvcf = "tb/data/tb.vcf.gz",
+		ref = "tb/data/MTB_ancestor_reference.fasta"
+	output:
+		"tb/results/seqs.vcf.gz",
+		"tb/results/meta.tsv",
+		"tb/results/ref.fasta"
+	shell:
+		"python src/prepare_vcf.py --gzvcf {input.gzvcf} --ref {input.ref} --path tb"
+
+
+rule tree:
+	input:
+		"tb/results/seqs.vcf.gz",
+		"tb/results/meta.tsv",
+		"tb/results/ref.fasta"
+	output:
+		"tb/results/tree.nwk",
+		"tb/results/tree.tsv",
+		"tb/results/seq_gtr.txt",
+		"tb/results/tree_nuc_aln.vcf"
+	shell:
+		"python src/build_tree.py --path tb --timetree --iqtree --vcf --nthreads 2"
+
+
+rule translate:
+	input:
+		"zika/results/tree_nuc_aln.fasta",
+		"zika/results/ref_nuc_aln.fasta"
+	output:
+		"zika/results/tree_NS1_aln.fasta"
+	shell:
+		"python src/translate.py --path zika --reference zika/data/zika_outgroup.gb &&"
+		"python src/assign_amino_acid_mutations.py --path zika"
+
+rule mugration:
+	input:
+		"zika/results/tree.nwk"
+	output:
+		"zika/results/region_gtr.txt",
+		"zika/results/country_gtr.txt"
+	shell:
+		"python src/mugration.py --path zika --field country  &&"
+		"python src/mugration.py --path zika --field region"
+
+rule export:
+	input:
+		"zika/results/region_gtr.txt",
+		"zika/results/country_gtr.txt",
+		"zika/results/tree.tsv",
+		"zika/results/tree_NS1_aln.fasta"
+	output:
+		"zika/auspice/zika_tree.json",
+		"zika/auspice/zika_sequence.json",
+		"zika/auspice/zika_entropy.json"
+	shell:
+		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"
+
+rule clean:
+	shell:
+		"rm -r zika/results &&"
+		"rm -r zika/auspice"
