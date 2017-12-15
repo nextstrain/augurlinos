@@ -36,8 +36,9 @@ rule translate:
 	output:
 		"zika/results/tree_NS1_aln.fasta"
 	shell:
-		"python src/translate.py --path zika --reference zika/data/zika_outgroup.gb &&"
-		"python src/assign_amino_acid_mutations.py --path zika"
+		"python src/translate.py --path zika --assignMuts --reference zika/data/zika_outgroup.gb"
+		#"python src/translate.py --path zika --reference zika/data/zika_outgroup.gb &&"
+		#"python src/assign_amino_acid_mutations.py --path zika"
 
 rule mugration:
 	input:

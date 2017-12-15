@@ -2,6 +2,7 @@ import numpy as np
 from filenames import tree_newick, tree_sequence_alignment
 from util import (read_tree_meta_data, write_tree_meta_data,
                   get_genes_and_alignments, generic_argparse)
+from filenames import tree_newick
 from Bio import Phylo
 
 def get_amino_acid_mutations(tree, fname):

@@ -300,6 +300,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
                         "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n")
         the_file.write("\t".join(header)+"\n")  
     
+    vcfWrite = []
+    
     #now get the variable positions and calls for every sample (node)
     i=0
     while i < len(positions):
@@ -378,14 +380,22 @@ def write_VCF_style_alignment(tree_dict, file_name):
             j+=1 
         #Now convert these calls to #/# (VCF format)
         calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
+        if len(uniques)==0:
+            print "UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}".format(str(pi))
+            break
         
         #put it all together and write it out!
         #increment positions by 1 so it's in VCF numbering not python numbering
         output = ["MTB_anc", str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
     
-        with open(file_name, 'a') as the_file:
-            the_file.write("\t".join(output)+"\n")
+        vcfWrite.append("\t".join(output))
+        
+        #with open(file_name, 'a') as the_file:
+        #    the_file.write("\t".join(output)+"\n")
         i+=1
+        
+    with open(file_name, 'a') as the_file:
+        the_file.write("\n".join(vcfWrite))
         
         
 ########################################
@@ -398,8 +408,10 @@ TINY = 1e-12
 def safe_translate(sequence, report_exceptions=False):
     """Returns an amino acid translation of the given nucleotide sequence accounting
     for gaps in the given sequence.
+
     Optionally, returns a tuple of the translated sequence and whether an
     exception was raised during initial translation.
+
     >>> safe_translate("ATG")
     'M'
     >>> safe_translate("ATGGT-")
@@ -496,13 +508,108 @@ def diversity_statistics(fname, nuc=True):
 
 
 def load_features(reference, feature_names=None):
-    from Bio import SeqIO
+    #read in appropriately whether GFF or Genbank
+    #checks explicitly for GFF otherwise assumes Genbank
     features = {}
-    for feat in SeqIO.read(reference, 'genbank').features:
-        if feat.type=='CDS':
-            if "locus_tag" in feat.qualifiers:
-                fname = feat.qualifiers["locus_tag"][0]
-                if feature_names is None or fname in feature_names:
-                    features[fname] = feat
+    
+    if '.gff' in reference.lower():
+        #looks for 'gene' and 'gene' as best for TB
+        from BCBio import GFF
+        limit_info = dict( gff_type = ['gene'] )
+
+        in_handle = open(reference)
+        for rec in GFF.parse(in_handle, limit_info=limit_info):
+            for feat in rec.features:
+                if "gene" in feat.qualifiers:
+                    fname = feat.qualifiers["gene"][0]
+                    if feature_names is None or fname in feature_names:
+                        features[fname] = feat
+        in_handle.close()
+        
+    else:
+        from Bio import SeqIO
+        for feat in SeqIO.read(reference, 'genbank').features:
+            if feat.type=='CDS':
+                if "locus_tag" in feat.qualifiers:
+                    fname = feat.qualifiers["locus_tag"][0]
+                    if feature_names is None or fname in feature_names:
+                        features[fname] = feat
 
     return features
+
+
+def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
+    """
+    Writes out a VCF-style file (which seems to be minimally handleable
+    by vcftools and pyvcf) of the AA differences between sequences and the reference.
+    This is a similar format created/used by read_in_vcf except that there is one
+    of these dicts (with sequences, reference, positions) for EACH gene.
+    
+    Also writes out a fasta of the reference alignment.
+    
+    EBH 12 Dec 2017
+    """
+    
+    #for the header
+    seqNames = prot_dict[prot_dict.keys()[0]]['sequences'].keys()
+    
+    #prepare the header of the VCF & write out
+    header=["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT"]+seqNames
+    with open(vcf_file_name, 'w') as the_file:
+        the_file.write( "##fileformat=VCFv4.2\n"+
+                        "##source=NextStrain_Protein_Translation\n"+
+                        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n")
+        the_file.write("\t".join(header)+"\n")  
+    
+    refWrite = []
+    vcfWrite = []
+    
+    #go through for every gene/protein
+    for fname, prot in prot_dict.iteritems():
+        sequences = prot['sequences']
+        ref = prot['reference']
+        positions = prot['positions']
+        
+        #write out the reference fasta
+        refWrite.append(">"+fname)
+        refWrite.append(ref)
+        
+        #go through every variable position
+        #There are no deletions here, so it's simpler than for VCF nuc sequenes!
+        i=0
+        while i < len(positions):
+            pi = positions[i]
+            pos = pi+1 #change numbering to match VCF not python
+            refb = ref[pi] #reference base at this position
+            
+            pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
+            
+            #get the list of ALTs - minus any '.'!
+            uniques = np.unique(pattern) 
+            uniques = uniques[np.where(uniques!='.')]
+            
+            #Convert bases to the number that matches the ALT
+            j=1
+            for u in uniques:
+                pattern[np.where(pattern==u)[0]] = str(j)
+                j+=1 
+            #Now convert these calls to #/# (VCF format)
+            calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
+            if len(uniques)==0:
+                print "UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}".format(str(pi))
+                break
+            
+            #put it all together and write it out!
+            #increment positions by 1 so it's in VCF numbering not python numbering
+            output = [fname, str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
+        
+            vcfWrite.append("\t".join(output))
+
+            i+=1
+       
+    #write it all out
+    with open(ref_file_name, 'w') as the_file:
+        the_file.write("\n".join(refWrite))
+    
+    with open(vcf_file_name, 'a') as the_file:
+        the_file.write("\n".join(vcfWrite))
