@@ -41,7 +41,6 @@ def translate_vcf_feature(sequences, ref, feature):
 
     refNuc = str(feature.extract( SeqRecord(seq=Seq(ref)) ).seq)
     ref_aa_seq = safe_translate(refNuc)
-    ref_aa_seq_np = np.array(list(ref_aa_seq), 'S1')
     prot['reference'] = ref_aa_seq
 
     start = int(feature.location.start)
@@ -67,7 +66,7 @@ def translate_vcf_feature(sequences, ref, feature):
         aaRepLocsFinal = {}
         #remove if is a synonymous mutation!
         for key,val in aaRepLocs.iteritems():
-            if ref_aa_seq_np[key] != val:
+            if ref_aa_seq[key] != val:
                 aaRepLocsFinal[key] = val
                 #print "new codon ({}) is same as ref({}) at position {}".format(val, ref_aa_seq_np[key], key)
 
@@ -82,6 +81,7 @@ def translate_vcf_feature(sequences, ref, feature):
                 prot['positions'].append(key)
 
         #IF we wanted to get full translation....
+        #ref_aa_seq_np = np.array(list(ref_aa_seq), 'S1')
         #newAA = ref_aa_seq_np.copy()
         #newAA[aaRepLocs.keys()] = aaRepLocs.values()
 

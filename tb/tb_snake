@@ -43,13 +43,14 @@ rule translate:
 
 rule mugration:
 	input:
-		"zika/results/tree.nwk"
+		"tb/results/tree.nwk",
+		"tb/results/tree.tsv"
 	output:
-		"zika/results/region_gtr.txt",
-		"zika/results/country_gtr.txt"
+		"tb/results/region_gtr.txt",
+		"tb/results/country_gtr.txt"
 	shell:
-		"python src/mugration.py --path zika --field country  &&"
-		"python src/mugration.py --path zika --field region"
+		"python src/mugration.py --path tb --field country  &&"
+		"python src/mugration.py --path tb --field region"
 
 rule export:
 	input:
