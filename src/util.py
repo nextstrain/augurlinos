@@ -87,18 +87,18 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
     """
     Reads in a vcf.gz file (or vcf if compressed is False) and associated
     reference sequence fasta (to which the VCF file is mapped)
-    
-    Parses mutations, insertions, and deletions and stores them in a nested dict 
+
+    Parses mutations, insertions, and deletions and stores them in a nested dict
     with the format:
     {'reference':'AGCTCGA..A',
      'sequences': { 'seq1':{4:'A', 7:'-'}, 'seq2':{100:'C'} },
      'insertions': { 'seq1':{4:'ATT'}, 'seq3':{1:'TT', 10:'CAG'} },
      'positions': [1,4,7,10,100...] }
-    
+
     Calls with values 0/1 (or 0/2, etc) are ignored.
     Positions are stored to correspond the location in the reference sequence
     in Python (numbering is transformed to start at 0)
-    
+
     Args
     ----
     vcf_file : string
@@ -107,17 +107,17 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
         Path to the fasta reference file to be read in
     compressed : boolean
         Specify false if VCF file is not compressed (not vcf.gz)
-        
+
     Returns
     --------
-    compress_seq : nested dict 
+    compress_seq : nested dict
         Contains the following keys:
-        
+
         references : string
             String of the reference sequence read from the Fasta
         sequences : nested dict
             Dict containing sequence names as keys which map to dicts
-            that have position as key and the single-base mutation (or deletion) 
+            that have position as key and the single-base mutation (or deletion)
             as values
         insertions : nested dict
             Dict in the same format as the above, which stores insertions and their
@@ -127,13 +127,13 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
             without losing that base.
         positions : list
             Python list of all positions with a mutation, insertion, or deletion.
-        
+
     EBH 4 Dec 2017
     """
     import vcf
-    from Bio import SeqIO    
+    from Bio import SeqIO
     vcf_reader = vcf.Reader(filename=vcf_file, compressed=compressed)
-    
+
     sequences = {}
     insertions = {}
     positions = []
@@ -145,18 +145,18 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
         for sample in record.samples:
             if sample['GT'] != '.':
                 recCalls[sample.sample] = sample['GT']
-                
-        #store the position and the ALT 
+
+        #store the position and the ALT
         for seq, gen in recCalls.iteritems():
             if '0' not in gen:  #if is 0/1, ignore - uncertain call
                 alt = str(record.ALT[int(gen[0])-1])   #get the index of the alternate
                 ref = record.REF
                 pos = record.POS-1  #VCF numbering starts from 1, but Reference seq numbering
                                     #will be from 0 because it's python!
-                
+
                 if seq not in sequences.keys():
                     sequences[seq] = {}
-                
+
                 #figure out if insertion or deletion
                 #insertion where there is also deletions (special handling)
                 if len(ref) > 1 and len(alt)>len(ref):
@@ -173,9 +173,9 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                         if (i+1) >= len(ref):
                             insertions[seq][pos+i] = alt[i:]
                             #print "at pos {}, storing {} at pos {}".format(record.POS, alt[i:], (pos+i))
-                
+
                 #deletion
-                elif len(ref) > 1: 
+                elif len(ref) > 1:
                     for i in xrange(len(ref)):
                         #if ref is longer than alt, these are deletion positions
                         if i+1 > len(alt):
@@ -187,18 +187,18 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                             if ref[i] != alt[i]:
                                 sequences[seq][pos+i] = alt[i]
                                 if pos+i not in positions:
-                                    positions.append(pos+i) 
-                
+                                    positions.append(pos+i)
+
                 #insertion
-                elif len(alt) > 1: 
+                elif len(alt) > 1:
                     #keep a record of insertions so can put them in if we want, later
                     if seq not in insertions.keys():
                         insertions[seq] = {}
                     insertions[seq][pos] = alt
                     #First base of insertions always matches ref, so don't need to store
-                   
+
                 #no indel
-                else:  
+                else:
                     sequences[seq][pos] = alt
                     if pos not in positions:
                         positions.append(pos)
@@ -206,12 +206,12 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
     positions.sort()
     refSeq = SeqIO.parse(ref_file, format='fasta').next()
     refSeqStr = str(refSeq.seq)
-    
+
     compress_seq = {'reference':refSeqStr,
                     'sequences': sequences,
                     'insertions': insertions,
                     'positions': positions }
-    
+
     return compress_seq
 
 #####################################################
@@ -285,23 +285,23 @@ def write_VCF_style_alignment(tree_dict, file_name):
     Writes out a VCF-style file (which seems to be minimally handleable
     by vcftools and pyvcf) of the alignment from the input of a dict
     in a similar format to what's created from the read_in_vcf function above.
-    
+
     EBH 7 Dec 2017
     """
     sequences = tree_dict['sequences']
     ref = tree_dict['reference']
     positions = tree_dict['positions']
-    
+
     #prepare the header of the VCF & write out
     header=["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT"]+sequences.keys()
     with open(file_name, 'w') as the_file:
         the_file.write( "##fileformat=VCFv4.2\n"+
                         "##source=NextStrain\n"+
                         "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n")
-        the_file.write("\t".join(header)+"\n")  
-    
+        the_file.write("\t".join(header)+"\n")
+
     vcfWrite = []
-    
+
     #now get the variable positions and calls for every sample (node)
     i=0
     while i < len(positions):
@@ -313,12 +313,12 @@ def write_VCF_style_alignment(tree_dict, file_name):
         refb = ref[pi] #reference base at this position
         delete = False #deletion at this pos, need to grab previous pos too (which is invariable)
         deleteGroup = False #deletion at next pos (mutation at this pos)
-        
+
         pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
-        
+
         #if a deletion here, need to gather up all bases, and position before
         if any(pattern == '-'):
-            if pos != 1: 
+            if pos != 1:
                 deleteGroup = True
                 delete = True
             else:
@@ -330,7 +330,7 @@ def write_VCF_style_alignment(tree_dict, file_name):
             pattern2 = np.array([ sequences[k][pi+1] if pi+1 in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
             if any(pattern2 == '-'):
                 deleteGroup = True
-        
+
         #if there is a deletion, treat affected bases as 1 'call':
         if delete or deleteGroup:
             if delete: #need to get the position before!
@@ -338,12 +338,12 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 pi-=1
                 pos = pi+1
                 refb = ref[pi]
-               
+
             sites = []
-            #re-get pattern with ref instead of '.'    
+            #re-get pattern with ref instead of '.'
             pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
             sites.append(pattern)
-                
+
             #gather all positions affected by deletion
             while positions[i+1] == pi+1:
                 i+=1
@@ -351,12 +351,12 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 refb = refb+ref[pi]
                 pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
                 sites.append(pattern)
-            
+
             #group them into 'calls'
             sites = np.asarray(sites)
             align = np.rot90(sites)
             align = np.flipud(align)
-            
+
             #get rid of deletions, and put '.' for calls that match ref
             fullpat = []
             for pt in align:
@@ -365,39 +365,39 @@ def write_VCF_style_alignment(tree_dict, file_name):
                     fullpat.append('.')
                 else:
                     fullpat.append(pat)
-            
+
             pattern = np.array(fullpat)
 
-            
+
         #get the list of ALTs - minus any '.'!
-        uniques = np.unique(pattern) 
+        uniques = np.unique(pattern)
         uniques = uniques[np.where(uniques!='.')]
-        
+
         #Convert bases to the number that matches the ALT
         j=1
         for u in uniques:
             pattern[np.where(pattern==u)[0]] = str(j)
-            j+=1 
+            j+=1
         #Now convert these calls to #/# (VCF format)
         calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
         if len(uniques)==0:
             print "UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}".format(str(pi))
             break
-        
+
         #put it all together and write it out!
         #increment positions by 1 so it's in VCF numbering not python numbering
         output = ["MTB_anc", str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
-    
+
         vcfWrite.append("\t".join(output))
-        
+
         #with open(file_name, 'a') as the_file:
         #    the_file.write("\t".join(output)+"\n")
         i+=1
-        
+
     with open(file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
-        
-        
+
+
 ########################################
 # translation
 #######################################3
@@ -511,7 +511,7 @@ def load_features(reference, feature_names=None):
     #read in appropriately whether GFF or Genbank
     #checks explicitly for GFF otherwise assumes Genbank
     features = {}
-    
+
     if '.gff' in reference.lower():
         #looks for 'gene' and 'gene' as best for TB
         from BCBio import GFF
@@ -525,7 +525,7 @@ def load_features(reference, feature_names=None):
                     if feature_names is None or fname in feature_names:
                         features[fname] = feat
         in_handle.close()
-        
+
     else:
         from Bio import SeqIO
         for feat in SeqIO.read(reference, 'genbank').features:
@@ -544,36 +544,36 @@ def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
     by vcftools and pyvcf) of the AA differences between sequences and the reference.
     This is a similar format created/used by read_in_vcf except that there is one
     of these dicts (with sequences, reference, positions) for EACH gene.
-    
+
     Also writes out a fasta of the reference alignment.
-    
+
     EBH 12 Dec 2017
     """
-    
+
     #for the header
     seqNames = prot_dict[prot_dict.keys()[0]]['sequences'].keys()
-    
+
     #prepare the header of the VCF & write out
     header=["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT"]+seqNames
     with open(vcf_file_name, 'w') as the_file:
         the_file.write( "##fileformat=VCFv4.2\n"+
                         "##source=NextStrain_Protein_Translation\n"+
                         "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n")
-        the_file.write("\t".join(header)+"\n")  
-    
+        the_file.write("\t".join(header)+"\n")
+
     refWrite = []
     vcfWrite = []
-    
+
     #go through for every gene/protein
     for fname, prot in prot_dict.iteritems():
         sequences = prot['sequences']
         ref = prot['reference']
         positions = prot['positions']
-        
+
         #write out the reference fasta
         refWrite.append(">"+fname)
         refWrite.append(ref)
-        
+
         #go through every variable position
         #There are no deletions here, so it's simpler than for VCF nuc sequenes!
         i=0
@@ -581,35 +581,35 @@ def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
             pi = positions[i]
             pos = pi+1 #change numbering to match VCF not python
             refb = ref[pi] #reference base at this position
-            
+
             pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
-            
+
             #get the list of ALTs - minus any '.'!
-            uniques = np.unique(pattern) 
+            uniques = np.unique(pattern)
             uniques = uniques[np.where(uniques!='.')]
-            
+
             #Convert bases to the number that matches the ALT
             j=1
             for u in uniques:
                 pattern[np.where(pattern==u)[0]] = str(j)
-                j+=1 
+                j+=1
             #Now convert these calls to #/# (VCF format)
             calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
             if len(uniques)==0:
                 print "UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}".format(str(pi))
                 break
-            
+
             #put it all together and write it out!
             #increment positions by 1 so it's in VCF numbering not python numbering
             output = [fname, str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
-        
+
             vcfWrite.append("\t".join(output))
 
             i+=1
-       
+
     #write it all out
     with open(ref_file_name, 'w') as the_file:
         the_file.write("\n".join(refWrite))
-    
+
     with open(vcf_file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
