@@ -73,8 +73,21 @@ def sequence_gtr_model(path):
 def mugration_model(path, field):
     return path+'/results/'+'%s_gtr.txt'%field
 
+    
+#EBH 12 Dec 17
+def dropped_genes(path):
+    return path+'/results/'+'dropped_genes.txt'
+    
+    
+#EBH 13 Dec 17
+def translation_vcf_file(path):
+    return path+'/results/'+'translation.vcf'
+    
+    
+def translation_ref_file(path):
+    return path+'/results/'+'translation_reference.fasta'
 
-
+    
 #######################################
 # Auspice json file name
 #######################################
