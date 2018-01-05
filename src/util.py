@@ -46,7 +46,7 @@ def read_tree_meta_data(path):
     return meta
 
 
-def write_tree_meta_data(path, meta_dic):
+def write_tree_meta_data(path, meta_dic, indent=1):
     from filenames import tree_meta_file_name
     # import pandas as pd
     # header = set()
@@ -57,7 +57,7 @@ def write_tree_meta_data(path, meta_dic):
     # df.to_csv(tree_meta_file_name(path), sep='\t', index=False)
     import json
     with open(tree_meta_file_name(path), 'w') as ofile:
-        json.dump(meta_dic, ofile)
+        json.dump(meta_dic, ofile, indent=indent)
 
 
 
@@ -272,10 +272,19 @@ def ambiguous_date_to_date_range(mydate, fmt):
 
 def write_json(data, file_name, indent=1):
     import json
+    import os
+
+    #in case auspice folder does not exist yet
+    if not os.path.exists(os.path.dirname(file_name)):
+        try:
+            os.makedirs(os.path.dirname(file_name))
+        except OSError: #Guard against race condition
+            if not os.path.isdir(os.path.dirname(file_name)):
+                raise
     try:
         handle = open(file_name, 'w')
     except IOError:
-        pass
+        raise
     else:
         json.dump(data, handle, indent=indent)
         handle.close()

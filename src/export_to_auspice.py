@@ -65,8 +65,6 @@ def attach_tree_meta_data(T, node_meta):
             else:
                 n.attr[field] = val
 
-
-
     T.root.attr['div']=0
     for n in T.get_nonterminals(order='preorder'):
         for c in n:
@@ -75,10 +73,9 @@ def attach_tree_meta_data(T, node_meta):
 
 
 
-def export_sequence_json(T, path, prefix):
+def export_sequence_json(T, path, prefix, indent=None):
     from Bio import SeqIO
     plain_export = 0.99
-    indent = None
 
     elems = {'root':{}}
     for node in T.find_clades():
@@ -155,11 +152,10 @@ def export_metadata_json(T, path, prefix, indent):
     write_json(meta_json, prefix+'_meta.json')
 
 
-def export_diversity(path, prefix, reference):
+def export_diversity(path, prefix, reference, indent=None):
     '''
     write the alignment entropy of each alignment (nucleotide and translations) to file
     '''
-    indent=None
     genes = load_features(reference)
     entropy_json = {}
     for feat, aln_fname in get_genes_and_alignments(path, tree=False):
@@ -206,6 +202,6 @@ if __name__ == '__main__':
     tjson = tree_to_json(T.root, extra_attr=fields_to_export)
     write_json(tjson, tree_json(path, args.prefix))
 
-    export_sequence_json(T, path, args.prefix)
+    export_sequence_json(T, path, args.prefix, indent=1)
 
-    export_diversity(path, args.prefix, args.reference)
+    export_diversity(path, args.prefix, args.reference, indent=1)

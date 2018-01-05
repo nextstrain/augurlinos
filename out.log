@@ -1,0 +1,14 @@
+
+VCFtools - UNKNOWN
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--gzvcf tb/data/tb.vcf.gz
+	--recode
+	--stdout
+
+Using zlib version: 1.2.8
+After filtering, kept 100 out of 100 Individuals
+Outputting VCF file...
+After filtering, kept 27279 out of a possible 27279 Sites
+Run Time = 5.00 seconds

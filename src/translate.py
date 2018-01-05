@@ -50,7 +50,7 @@ def translate_vcf_feature(sequences, ref, feature):
         #get positions where diffs
         varSite = np.array(sequences[seqk].keys())
         #reduce to only those within current gene
-        geneVarSites = np.logical_and(varSite >= start, varSite <= end)
+        geneVarSites = np.logical_and(varSite >= start, varSite < end)
         #translate this back to nuc position
         nucVarSites = varSite[geneVarSites]
         #get it in position within the gene! - because whole genome may not be in frame!! But we must assume gene is..
@@ -95,12 +95,19 @@ def translate_vcf_feature(sequences, ref, feature):
 
 
 def translate_vcf(vcf_fname, reference, path, feature_names=None):
+    import time
+    start = time.time()
     try:
         vcf_dict = read_in_vcf(vcf_fname, ref_fasta(path), compressed=False )
     except:
         print "Loading input alignment failed!: {}".format(vcf_fname)
+    end = time.time()
+    print "Reading in VCF took {}".format(str(end-start))
 
+    start = time.time()
     selected_features = load_features(reference, feature_names)
+    end = time.time()
+    print "Reading in genes took {}".format(str(end-start))
 
     ref = vcf_dict['reference']
     sequences = vcf_dict['sequences']
@@ -109,7 +116,6 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
     deleted = []
     notMult3 = []
 
-    import time
     start = time.time()
     #if genes have no mutations across sequences, they are dropped here from further analysis
     #check that gene lengths are multiples of 3. The first occurance causes an error in

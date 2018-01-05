@@ -36,7 +36,7 @@ rule translate:
 		"tb/results/translation_reference.fasta",
 		"tb/results/translation.vcf"
 	shell:
-		"python src/translate.py --path tb --vcf --assignMuts --reference {input.gff}"
+		"python src/translate.py --path tb --vcf --assignMuts --genes {input.genes} --reference {input.gff}"
 		#"python src/translate.py --path tb --vcf --genes {input.genes} --reference {input.gff}"
 		#"python src/translate.py --path zika --vcf --reference zika/data/zika_outgroup.gb &&"
 		#"python src/assign_amino_acid_mutations.py --path zika"

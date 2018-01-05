@@ -81,17 +81,29 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     path = args.path
-
     T = tree_newick(path)
+
+    import time
+    start = time.time()
+
     seq_meta = read_sequence_meta_data(path)
     tree_meta = read_tree_meta_data(path)
+    end = time.time()
+    print "Reading in meta files took {}".format(str(end-start))
 
+    start = time.time()
     tt, alphabet = mugration_inference(tree=T, seq_meta=seq_meta,
                         field=args.field, confidence=args.confidence)
+
+    end = time.time()
+    print "Mugration took {}".format(str(end-start))
+
     if args.confidence:
         fields = [args.field, args.field+'_confidence', args.field + '_entropy']
     else:
         fields = [args.field]
+
+    start = time.time()
     collect_tree_meta_data(tt.tree, fields, meta=tree_meta)
     write_tree_meta_data(path, tree_meta)
 
@@ -102,3 +114,6 @@ if __name__ == '__main__':
         ofile.write('\n\n')
 
         ofile.write(str(tt.gtr))
+
+    end = time.time()
+    print "Mugration file writing took {}".format(str(end-start))
