@@ -28,6 +28,7 @@ def translate(aln_fname, reference, name_func, feature_names=None):
         print("Loading input alignment failed!:", aln_fname)
 
     selected_features = load_features(reference, feature_names)
+    print "Translating {} genes...".format(len(selected_features))
 
     for fname, feature in selected_features.items():
         translation = translate_feature(aln, feature)
@@ -106,6 +107,7 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
 
     start = time.time()
     selected_features = load_features(reference, feature_names)
+    print "Translating {} genes...".format(len(selected_features))
     end = time.time()
     print "Reading in genes took {}".format(str(end-start))
 

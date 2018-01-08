@@ -314,8 +314,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
     #now get the variable positions and calls for every sample (node)
     i=0
     while i < len(positions):
-        #get the pattern at this position, but if matches the ref, put '.'
-        #(this is how this is indicated in VCF format) - but only if not deletion!
+        #get the pattern at this position
+        #but only if not deletion!
         #VCF handles deletions in a really weird way, so we have to accomodate this...
         pi = positions[i]
         pos = pi+1 #change numbering to match VCF not python
@@ -323,7 +323,27 @@ def write_VCF_style_alignment(tree_dict, file_name):
         delete = False #deletion at this pos, need to grab previous pos too (which is invariable)
         deleteGroup = False #deletion at next pos (mutation at this pos)
 
-        pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
+        #I've updated how getting patterns is handled - it turns out using an 'if'
+        #is not v. efficient, better to try every location and handle exceptions,
+        #as on average a variable location will not be variable for one sequence.
+
+        pattern = []
+        pattern2 = [] #go ahead and get both, so only loop once!
+        for k,v in sequences.iteritems():
+            try:
+                pattern.append(sequences[k][pi])
+            except KeyError, e:
+                pattern.append(ref[pi])
+
+            try:
+                pattern2.append(sequences[k][pi+1])
+            except KeyError, e:
+                pattern2.append(ref[pi+1])
+
+        pattern = np.array(pattern)
+        pattern2 = np.array(pattern2)
+
+        #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])  #old way
 
         #if a deletion here, need to gather up all bases, and position before
         if any(pattern == '-'):
@@ -336,7 +356,7 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 print "WARNING: You have a deletion in the first position of your alignment. VCF format does not handle this well. Please check the output to ensure it is correct."
         else:
             #if there's a deletion in next pos, need gather up bases
-            pattern2 = np.array([ sequences[k][pi+1] if pi+1 in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
+            #pattern2 = np.array([ sequences[k][pi+1] if pi+1 in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
             if any(pattern2 == '-'):
                 deleteGroup = True
 
@@ -347,10 +367,16 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 pi-=1
                 pos = pi+1
                 refb = ref[pi]
+                #re-get pattern if this is the case, same new method as above:
+                pattern = []
+                for k,v in sequences.iteritems():
+                    try:
+                        pattern.append(sequences[k][pi])
+                    except KeyError, e:
+                        pattern.append(ref[pi])
+                pattern = np.array(pattern)
 
             sites = []
-            #re-get pattern with ref instead of '.'
-            pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
             sites.append(pattern)
 
             #gather all positions affected by deletion
@@ -358,7 +384,15 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 i+=1
                 pi = positions[i]
                 refb = refb+ref[pi]
-                pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
+                #again, new method
+                pattern = []
+                for k,v in sequences.iteritems():
+                    try:
+                        pattern.append(sequences[k][pi])
+                    except KeyError, e:
+                        pattern.append(ref[pi])
+                pattern = np.array(pattern)
+                #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
                 sites.append(pattern)
 
             #group them into 'calls'
@@ -377,6 +411,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
 
             pattern = np.array(fullpat)
 
+        else: #if no deletion, need to replace ref with '.' as in VCF files
+            pattern[pattern==refb] = '.'
 
         #get the list of ALTs - minus any '.'!
         uniques = np.unique(pattern)
@@ -390,8 +426,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
         #Now convert these calls to #/# (VCF format)
         calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
         if len(uniques)==0:
-            print "UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}".format(str(pi))
-            break
+            print "util.py: UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}. No variation!".format(str(pi))
+            #break   #keep going, as every other site should be fine...
 
         #put it all together and write it out!
         #increment positions by 1 so it's in VCF numbering not python numbering
@@ -531,8 +567,11 @@ def load_features(reference, feature_names=None):
             for feat in rec.features:
                 if "gene" in feat.qualifiers:
                     fname = feat.qualifiers["gene"][0]
-                    if feature_names is None or fname in feature_names:
-                        features[fname] = feat
+                else:
+                    fname = feat.qualifiers["locus_tag"][0]
+                if feature_names is None or fname in feature_names:
+                    features[fname] = feat
+
         in_handle.close()
 
     else:

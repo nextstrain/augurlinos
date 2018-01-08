@@ -38,6 +38,7 @@ if __name__ == '__main__':
 
     #First copy to recode and rename and put in results
     call = ["vcftools --gzvcf", args.gzvcf, "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
+    print("VCFTools call:")
     print(" ".join(call))
     os.system(" ".join(call))
 
@@ -69,5 +70,5 @@ if __name__ == '__main__':
     copyfile(args.ref, ref_fasta(path))
 
     end = time.time()
-    print "Prepare took {}".format(str(end-start))
+    print("Prepare took {}".format(str(end-start)))
 

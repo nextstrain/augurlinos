@@ -38,15 +38,22 @@ def build_fasttree(aln_file, out_file, clean_up=True):
     return T
 
 
-def build_iqtree(aln_file, out_file, clean_up=True, nthreads=2):
-    call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, ">", "iqtree.log"]
+def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
+    if iqmodel:
+        call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, "-m", iqmodel[0],
+            ">", "iqtree.log"]
+    else:
+        call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, ">", "iqtree.log"]
     print(" ".join(call))
     os.system(" ".join(call))
     try:
         T = Phylo.read(aln_file+".treefile", 'newick')
         shutil.copyfile(aln_file+".treefile", out_file)
+        #this allows the user to check intermediate output, as tree.nwk will be
+        #written over with TreeTime tree
+        shutil.copyfile(aln_file+".treefile", out_file.replace(".nwk",".iqtree.nwk"))
         if clean_up:
-            os.remove('iqtree.log')
+            #os.remove('iqtree.log')   #to allow user to see chosen model
             for filename in glob.glob(aln_file+".*"):
                 os.remove(filename)
     except:
@@ -128,9 +135,16 @@ def write_out_variable_fasta(compress_seq, path):
     seqNames = sequences.keys()
 
     #get the variables sites, either ALT or REF as already determined above
+    #use faster method
     sites = []
     for key in positions:
-        pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
+        pattern = []
+        for k,v in sequences.iteritems():
+            try:
+                pattern.append(sequences[k][key])
+            except KeyError, e:
+                pattern.append(ref[key])
+        #pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
         sites.append(pattern)
 
     #rotate into an alignment and turn into list of SeqRecord to output easily
@@ -162,10 +176,13 @@ if __name__ == '__main__':
                         help="use iqtree for initial tree building")
     parser.add_argument('--raxml', action='store_true', default=False,
                         help="use raxml for initial tree building")
-    parser.add_argument('--fasttree', action'store_true', default=True,
+    parser.add_argument('--fasttree', action='store_true', default=True,
                         help="use fasttree for initial tree building (default)")
     parser.add_argument('--vcf', action='store_true', default=False,
                         help="sequence is in VCF format")
+
+    #EBH 5 Jan 2018
+    parser.add_argument('--iqmodel', nargs=1, help='model to use with iqtree')
 
     args = parser.parse_args()
     path = args.path
@@ -190,6 +207,9 @@ if __name__ == '__main__':
         end = time.time()
         print "Writing out variable sites took {}".format(str(end-start))
 
+    if args.iqmodel and not args.iqtree:
+        print "Cannot specify model unless using IQTree. Model specification ignored."
+
     if args.vcf:
         treebuild_align = var_site_alignment(path)
     else:
@@ -199,7 +219,7 @@ if __name__ == '__main__':
     if args.raxml:
         T = build_raxml(treebuild_align, tree_newick(path), path)
     elif args.iqtree:
-        T = build_iqtree(treebuild_align, tree_newick(path))
+        T = build_iqtree(treebuild_align, tree_newick(path), args.iqmodel)
     else: #use fasttree - if add more options, put another check here
         T = build_fasttree(treebuild_align, tree_newick(path))
     end = time.time()
