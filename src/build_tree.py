@@ -53,7 +53,9 @@ def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
         #written over with TreeTime tree
         shutil.copyfile(aln_file+".treefile", out_file.replace(".nwk",".iqtree.nwk"))
         if clean_up:
-            #os.remove('iqtree.log')   #to allow user to see chosen model
+            #allow user to see chosen model
+            shutil.copyfile('iqtree.log', out_file.replace("tree.nwk","iqtree.log")) 
+            os.remove('iqtree.log')   
             for filename in glob.glob(aln_file+".*"):
                 os.remove(filename)
     except:
@@ -145,7 +147,11 @@ def write_out_variable_fasta(compress_seq, path):
             except KeyError, e:
                 pattern.append(ref[key])
         #pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
-        sites.append(pattern)
+        un = np.unique(pattern, return_counts=True)
+        if len(un[0])==2 and min(un[1])==1: #'singleton' mutation - only happens in 1 seq
+            False #don't append! (python makes me put something here)
+        else:
+            sites.append(pattern)
 
     #rotate into an alignment and turn into list of SeqRecord to output easily
     sites = np.asarray(sites)

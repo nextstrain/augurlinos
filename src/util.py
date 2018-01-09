@@ -130,80 +130,129 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
 
     EBH 4 Dec 2017
     """
-    import vcf
+    #vcf is inefficient for the data we want. House code is *much* faster.
+    #the downside is that this assumes samples start at column 9 (python numbering)!!
+    import gzip
     from Bio import SeqIO
-    vcf_reader = vcf.Reader(filename=vcf_file, compressed=compressed)
+    import numpy as np
 
     sequences = {}
     insertions = {}
     positions = []
 
-    for record in vcf_reader:
+    nsamp = 0
+    posLoc = 0
+    refLoc = 0
+    altLoc = 0
+    sampLoc = 9
 
-        #get samples that differ from Ref at this site
-        recCalls = {}
-        for sample in record.samples:
-            if sample['GT'] != '.':
-                recCalls[sample.sample] = sample['GT']
+    if compressed: #must use 2 diff functions depending on compressed or not
+        opn = gzip.open
+    else:
+        opn = open
 
-        #store the position and the ALT
-        for seq, gen in recCalls.iteritems():
-            if '0' not in gen:  #if is 0/1, ignore - uncertain call
-                alt = str(record.ALT[int(gen[0])-1])   #get the index of the alternate
-                ref = record.REF
-                pos = record.POS-1  #VCF numbering starts from 1, but Reference seq numbering
-                                    #will be from 0 because it's python!
+    #with gzip.open(vcf_file) as f:
+    with opn(vcf_file) as f:
+        for line in f:
+            if line[0] != '#':
+                #actual data - most common so first in 'if-list'!
+                line = line.strip()
+                dat = line.split('\t')
+                POS = int(dat[posLoc])
+                REF = dat[refLoc]
+                ALT = dat[altLoc].split(',')
+                calls = np.array(dat[sampLoc:])
 
-                if seq not in sequences.keys():
-                    sequences[seq] = {}
 
-                #figure out if insertion or deletion
-                #insertion where there is also deletions (special handling)
-                if len(ref) > 1 and len(alt)>len(ref):
-                    #print "nonstandard insertion at pos {}".format(record.POS)
-                    if seq not in insertions.keys():
-                        insertions[seq] = {}
-                    for i in xrange(len(ref)):
-                        #if the pos doesn't match, store in sequences
-                        if ref[i] != alt[i]:
-                            sequences[seq][pos+i] = alt[i]
-                            if pos+1 not in positions:
-                                positions.append(pos+i)
-                        #if about to run out of ref, store rest:
-                        if (i+1) >= len(ref):
-                            insertions[seq][pos+i] = alt[i:]
-                            #print "at pos {}, storing {} at pos {}".format(record.POS, alt[i:], (pos+i))
+                #get samples that differ from Ref at this site
+                recCalls = {}
+                k=0
+                for sa in calls:
+                    if ':' in sa: #if proper VCF file
+                        gt = sa.split(':')[0]
+                    else: #if 'pseudo' VCF file (nextstrain output)
+                        gt = sa
+                    if gt != '.':
+                        recCalls[samps[k]] = gt
+                    k+=1
 
-                #deletion
-                elif len(ref) > 1:
-                    for i in xrange(len(ref)):
-                        #if ref is longer than alt, these are deletion positions
-                        if i+1 > len(alt):
-                            sequences[seq][pos+i] = '-'
-                            if pos+i not in positions:
-                                positions.append(pos+i)
-                        #if not, there may be mutations
-                        else:
-                            if ref[i] != alt[i]:
-                                sequences[seq][pos+i] = alt[i]
-                                if pos+i not in positions:
+                #store the position and the alt
+                for seq, gen in recCalls.iteritems():
+                    if '0' not in gen:  #if is 0/1, ignore - uncertain call
+                        alt = str(ALT[int(gen[0])-1])   #get the index of the alternate
+                        ref = REF
+                        pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
+                                        #will be from 0 because it's python!
+
+                        if seq not in sequences.keys():
+                            sequences[seq] = {}
+
+                        #figure out if insertion or deletion
+                        #insertion where there is also deletions (special handling)
+                        if len(ref) > 1 and len(alt)>len(ref):
+                            #print "nonstandard insertion at pos {}".format(record.POS)
+                            if seq not in insertions.keys():
+                                insertions[seq] = {}
+                            for i in xrange(len(ref)):
+                                #if the pos doesn't match, store in sequences
+                                if ref[i] != alt[i]:
+                                    sequences[seq][pos+i] = alt[i]
+                                    #if pos+1 not in positions:
                                     positions.append(pos+i)
+                                #if about to run out of ref, store rest:
+                                if (i+1) >= len(ref):
+                                    insertions[seq][pos+i] = alt[i:]
+                                    #print "at pos {}, storing {} at pos {}".format(record.POS, alt[i:], (pos+i))
 
-                #insertion
-                elif len(alt) > 1:
-                    #keep a record of insertions so can put them in if we want, later
-                    if seq not in insertions.keys():
-                        insertions[seq] = {}
-                    insertions[seq][pos] = alt
-                    #First base of insertions always matches ref, so don't need to store
+                        #deletion
+                        elif len(ref) > 1:
+                            for i in xrange(len(ref)):
+                                #if ref is longer than alt, these are deletion positions
+                                if i+1 > len(alt):
+                                    sequences[seq][pos+i] = '-'
+                                    #if pos+i not in positions:
+                                    positions.append(pos+i)
+                                #if not, there may be mutations
+                                else:
+                                    if ref[i] != alt[i]:
+                                        sequences[seq][pos+i] = alt[i]
+                                        #if pos+i not in positions:
+                                        positions.append(pos+i)
 
-                #no indel
-                else:
-                    sequences[seq][pos] = alt
-                    if pos not in positions:
-                        positions.append(pos)
+                        #insertion
+                        elif len(alt) > 1:
+                            #keep a record of insertions so can put them in if we want, later
+                            if seq not in insertions.keys():
+                                insertions[seq] = {}
+                            insertions[seq][pos] = alt
+                            #First base of insertions always matches ref, so don't need to store
 
-    positions.sort()
+                        #no indel
+                        else:
+                            sequences[seq][pos] = alt
+                            #if pos not in positions:
+                            positions.append(pos)
+
+            elif line[0] == '#' and line[1] == 'C':
+                #header line, get all the information
+                line = line.strip()
+                header = line.split('\t')
+                headNP = np.array(header)
+                posLoc = np.where(headNP=='POS')[0][0]
+                refLoc = np.where(headNP=='REF')[0][0]
+                altLoc = np.where(headNP=='ALT')[0][0]
+                samps = header[sampLoc:]
+                nsamp = len(samps)
+
+
+            #else you are a comment line, ignore.
+
+
+
+    positions = np.array(positions)
+    positions = np.unique(positions)
+    positions = np.sort(positions)
+
     refSeq = SeqIO.parse(ref_file, format='fasta').next()
     refSeqStr = str(refSeq.seq)
 

@@ -30,14 +30,14 @@ rule translate:
 	input:
 		"tb/results/tree_nuc_aln.vcf",
 		"tb/results/tree.tsv",
-		gff = "tb/data/Mtb_H37Rv_NCBI_Annot.gff"
-		#genes = "tb/data/genes.txt"
+		gff = "tb/data/Mtb_H37Rv_NCBI_Annot.gff",
+		genes = "tb/data/genes.txt"
 	output:
 		"tb/results/translation_reference.fasta",
 		"tb/results/translation.vcf"
 	shell:
-		"python src/translate.py --path tb --vcf --assignMuts --reference {input.gff}"
-		#"python src/translate.py --path tb --vcf --assignMuts --genes {input.genes} --reference {input.gff}"
+		"python src/translate.py --path tb --vcf --assignMuts --genes {input.genes} --reference {input.gff}"
+		#"python src/translate.py --path tb --vcf --assignMuts --reference {input.gff}"
 
 rule mugration:
 	input:
@@ -50,20 +50,4 @@ rule mugration:
 		"python src/mugration.py --path tb --field country  &&"
 		"python src/mugration.py --path tb --field region"
 
-rule export:
-	input:
-		"zika/results/region_gtr.txt",
-		"zika/results/country_gtr.txt",
-		"zika/results/tree.tsv",
-		"zika/results/tree_NS1_aln.fasta"
-	output:
-		"zika/auspice/zika_tree.json",
-		"zika/auspice/zika_sequence.json",
-		"zika/auspice/zika_entropy.json"
-	shell:
-		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"
 
-rule clean:
-	shell:
-		"rm -r zika/results &&"
-		"rm -r zika/auspice"
