@@ -26,13 +26,13 @@ def recode_gzvcf_name(path):
 #EBH 29 Nov 17
 def ref_fasta(path):
     return path+'/results/'+'ref.fasta'
-    
+
 
 #EBH 30 Nov 17
 def var_site_alignment(path):
     return path+'/results/'+'var_sites.fasta'
-    
-    
+
+
 def meta_file_name(path):
     return path+'/results/'+'meta.tsv'
 
@@ -56,11 +56,11 @@ def ref_alignment(path, prot='nuc'):
 def tree_sequence_alignment(path, prot='nuc'):
     return path+'/results/'+'tree_%s_aln.fasta'%prot
 
-    
+
 #EBH 7 Dec 17
 def tree_vcf_alignment(path, prot='nuc'):
     return path+'/results/'+'tree_%s_aln.vcf'%prot
-    
+
 
 def tree_newick(path):
     return path+'/results/'+'tree.nwk'
@@ -73,21 +73,21 @@ def sequence_gtr_model(path):
 def mugration_model(path, field):
     return path+'/results/'+'%s_gtr.txt'%field
 
-    
+
 #EBH 12 Dec 17
 def dropped_genes(path):
     return path+'/results/'+'dropped_genes.txt'
-    
-    
+
+
 #EBH 13 Dec 17
 def translation_vcf_file(path):
     return path+'/results/'+'translation.vcf'
-    
-    
+
+
 def translation_ref_file(path):
     return path+'/results/'+'translation_reference.fasta'
 
-    
+
 #######################################
 # Auspice json file name
 #######################################
@@ -100,3 +100,6 @@ def tree_json(path, prefix):
 
 def diversity_json(path, prefix):
     return path+'/auspice/'+prefix+'_entropy.json'
+
+def meta_json(path, prefix):
+    return path+'/auspice/'+prefix+'_meta.json'

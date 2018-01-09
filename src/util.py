@@ -613,3 +613,18 @@ def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
 
     with open(vcf_file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
+
+
+def load_lat_long_defs():
+    places = {}
+    with open('../fauna/source-data/geo_lat_long.tsv', 'r') as latlongfile:
+        header = latlongfile.readline().strip().split('\t')
+        for line in latlongfile:
+            try:
+                place, country, latitude, longitude = line.strip().split('\t')
+                places[place] = {'country_code':country,
+                                 'latitude':float(latitude),
+                                 'longitude':float(longitude)}
+            except:
+                print("trouble parsing", line)
+    return places
