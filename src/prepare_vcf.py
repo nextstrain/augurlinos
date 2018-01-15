@@ -65,7 +65,7 @@ if __name__ == '__main__':
         #if none dropped, just copy the meta file to results
         copyfile(orig_meta_file_name(path), meta_file_name(path))
 
-
+    os.remove('out.log') #remove vcftools log file thing.
     #finally copy the reference fasta so we know where it is and what its called
     copyfile(args.ref, ref_fasta(path))
 
