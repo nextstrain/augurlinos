@@ -25,6 +25,9 @@ def get_dropped_strains(path):
 if __name__ == '__main__':
     #to do - add so can pass vcf file instead of gzvcf file?
 
+    import time
+    start = time.time()
+
     parser = generic_argparse("parse gzvcf file and meta_data to drop samples")
     parser.add_argument("--gzvcf", required=True, type=str,
                         help = "file with input sequences as gunzipped vcf")
@@ -35,20 +38,20 @@ if __name__ == '__main__':
 
     #First copy to recode and rename and put in results
     call = ["vcftools --gzvcf", args.gzvcf, "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
-#    call = ["vcftools --gzvcf", argsgzvcf, "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
+    print("VCFTools call:")
     print(" ".join(call))
     os.system(" ".join(call))
-    
+
     #Get any sequences to be dropped
     dropped_strains = get_dropped_strains(path)
-    
+
     #if some dropped, remove them in a loop
     if len(dropped_strains) != 0:
         #for some reason vcftools doesn't seem to work if input and output are the same file
         #so create a copy we'll delete in a few lines
         copyfile(recode_gzvcf_name(path), recode_gzvcf_name(path)+"_temp")
         toDrop = " ".join(["--remove-indv "+s for s in dropped_strains])
-        call = ["vcftools", toDrop, "--gzvcf", recode_gzvcf_name(path)+"_temp", "--recode --stdout | gzip -c >", recode_gzvcf_name(path)] 
+        call = ["vcftools", toDrop, "--gzvcf", recode_gzvcf_name(path)+"_temp", "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
         print(" ".join(call))
         os.system(" ".join(call))
         os.remove(recode_gzvcf_name(path)+"_temp")
@@ -62,9 +65,10 @@ if __name__ == '__main__':
         #if none dropped, just copy the meta file to results
         copyfile(orig_meta_file_name(path), meta_file_name(path))
 
-    
+    os.remove('out.log') #remove vcftools log file thing.
     #finally copy the reference fasta so we know where it is and what its called
-#    copyfile(argsref, ref_fasta(path))
     copyfile(args.ref, ref_fasta(path))
 
+    end = time.time()
+    print("Prepare took {}".format(str(end-start)))
 

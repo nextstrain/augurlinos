@@ -78,21 +78,35 @@ if __name__ == '__main__':
                         help='meta data field to perform discrete reconstruction on')
     parser.add_argument('--confidence',action="store_true",
                         help='record the distribution of subleading mugration states')
+    parser.add_argument('--vcf', action='store_true', default=False,
+                        help="sequence is in VCF format")
 
     args = parser.parse_args()
     path = args.path
-
     T = tree_newick(path)
+
+    import time
+    start = time.time()
+
     seq_meta = read_sequence_meta_data(path)
     tree_meta = read_tree_meta_data(path)
+    end = time.time()
+    print "Reading in meta files took {}".format(str(end-start))
 
+    start = time.time()
     tt, alphabet = mugration_inference(tree=T, seq_meta=seq_meta,
                         field=args.field, confidence=args.confidence)
+
+    end = time.time()
+    print "Mugration took {}".format(str(end-start))
+
     if args.confidence:
         fields = [args.field, args.field+'_confidence', args.field + '_entropy']
     else:
         fields = [args.field]
-    collect_tree_meta_data(tt.tree, fields, meta=tree_meta)
+
+    start = time.time()
+    collect_tree_meta_data(tt.tree, fields, isvcf=args.vcf, meta=tree_meta)
     write_tree_meta_data(path, tree_meta)
 
     with open(mugration_model(path, args.field),'w') as ofile:
@@ -102,3 +116,6 @@ if __name__ == '__main__':
         ofile.write('\n\n')
 
         ofile.write(str(tt.gtr))
+
+    end = time.time()
+    print "Mugration file writing took {}".format(str(end-start))

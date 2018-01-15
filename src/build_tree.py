@@ -38,14 +38,23 @@ def build_fasttree(aln_file, out_file, clean_up=True):
     return T
 
 
-def build_iqtree(aln_file, out_file, clean_up=True, nthreads=2):
-    call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, ">", "iqtree.log"]
+def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
+    if iqmodel:
+        call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, "-m", iqmodel[0],
+            ">", "iqtree.log"]
+    else:
+        call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, ">", "iqtree.log"]
     print(" ".join(call))
     os.system(" ".join(call))
     try:
         T = Phylo.read(aln_file+".treefile", 'newick')
         shutil.copyfile(aln_file+".treefile", out_file)
+        #this allows the user to check intermediate output, as tree.nwk will be
+        #written over with TreeTime tree
+        shutil.copyfile(aln_file+".treefile", out_file.replace(".nwk",".iqtree.nwk"))
         if clean_up:
+            #allow user to see chosen model
+            shutil.copyfile('iqtree.log', out_file.replace("tree.nwk","iqtree.log"))
             os.remove('iqtree.log')
             for filename in glob.glob(aln_file+".*"):
                 os.remove(filename)
@@ -119,24 +128,36 @@ def write_out_variable_fasta(compress_seq, path):
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
     from Bio.Seq import Seq
-    
+
     sequences = compress_seq['sequences']
     ref = compress_seq['reference']
     positions = compress_seq['positions']
-    
+
     #get sequence names
     seqNames = sequences.keys()
 
     #get the variables sites, either ALT or REF as already determined above
+    #use faster method
     sites = []
     for key in positions:
-        pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
-        sites.append(pattern)
+        pattern = []
+        for k,v in sequences.iteritems():
+            try:
+                pattern.append(sequences[k][key])
+            except KeyError, e:
+                pattern.append(ref[key])
+        #pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
+        un = np.unique(pattern, return_counts=True)
+        if len(un[0])==2 and min(un[1])==1: #'singleton' mutation - only happens in 1 seq
+            False #don't append! (python makes me put something here)
+        else:
+            sites.append(pattern)
 
     #rotate into an alignment and turn into list of SeqRecord to output easily
     sites = np.asarray(sites)
     align = np.rot90(sites)
-    toFasta = [ SeqRecord(id=seqNames[i], seq=Seq("".join(align[i])), description='') for i in xrange(len(sequences.keys()))]
+    seqNamesCorr = list(reversed(seqNames))
+    toFasta = [ SeqRecord(id=seqNamesCorr[i], seq=Seq("".join(align[i])), description='') for i in xrange(len(sequences.keys()))]
 
     #now output this as fasta to read into raxml or iqtree
     SeqIO.write(toFasta, var_site_alignment(path), 'fasta')
@@ -156,50 +177,70 @@ if __name__ == '__main__':
                        help='coalescence time scale measured in substitution rate units')
     parser.add_argument('--keeproot', action='store_true', default=False,
                         help="don't reroot the tree")
-    
+
     #EBH 4 Dec 2017
     parser.add_argument('--iqtree', action='store_true', default=False,
                         help="use iqtree for initial tree building")
     parser.add_argument('--raxml', action='store_true', default=False,
                         help="use raxml for initial tree building")
+    parser.add_argument('--fasttree', action='store_true', default=True,
+                        help="use fasttree for initial tree building (default)")
     parser.add_argument('--vcf', action='store_true', default=False,
                         help="sequence is in VCF format")
-                        
+
+    #EBH 5 Jan 2018
+    parser.add_argument('--iqmodel', nargs=1, help='model to use with iqtree')
+
     args = parser.parse_args()
     path = args.path
 
     date_fmt = '%Y-%m-%d'
-    
+
+    import time
+
     if args.vcf:
         #read in VCF and reference fasta and store
+        start = time.time()
         compress_seq = read_in_vcf(recode_gzvcf_name(path), ref_fasta(path))
         sequences = compress_seq['sequences']
         ref = compress_seq['reference']
-    
-        #write out the reduced fasta (only variable sites) to be read in 
+        end = time.time()
+        print "Reading in VCF took {}".format(str(end-start))
+
+        #write out the reduced fasta (only variable sites) to be read in
         #by iqtree/raxml/fasttree  ("var_site_alignment(path)")
+        start = time.time()
         write_out_variable_fasta(compress_seq, path)
-    
+        end = time.time()
+        print "Writing out variable sites took {}".format(str(end-start))
+
+    if args.iqmodel and not args.iqtree:
+        print "Cannot specify model unless using IQTree. Model specification ignored."
+
     if args.vcf:
         treebuild_align = var_site_alignment(path)
     else:
         treebuild_align = ref_alignment(path)
-    
+
+    start = time.time()
     if args.raxml:
         T = build_raxml(treebuild_align, tree_newick(path), path)
     elif args.iqtree:
-        T = build_iqtree(treebuild_align, tree_newick(path))
-    else: #use fasttree
+        T = build_iqtree(treebuild_align, tree_newick(path), args.iqmodel)
+    else: #use fasttree - if add more options, put another check here
         T = build_fasttree(treebuild_align, tree_newick(path))
+    end = time.time()
+    print "Building original tree took {}".format(str(end-start))
 
     meta = read_sequence_meta_data(path)
     fields = ['branchlength', 'clade']
 
+    start = time.time()
     if args.timetree:
         if args.vcf:
             tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence,
                           seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
-        else: 
+        else:
             tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
                           seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
 
@@ -215,21 +256,27 @@ if __name__ == '__main__':
         T = tt.tree
         fields.extend(['mutations', 'mutation_length'])
 
+    end = time.time()
+    print "TreeTime took {}".format(str(end-start))
+
     clade_index = 0
     for n in T.find_clades(order='preorder'):
         n.clade = clade_index
         clade_index+=1
 
     Phylo.write(T, tree_newick(path), 'newick')
-    meta_dic = collect_tree_meta_data(T, fields)
+    meta_dic = collect_tree_meta_data(T, fields, args.vcf)
     write_tree_meta_data(path, meta_dic)
 
     with open(sequence_gtr_model(path),'w') as ofile:
         ofile.write(str(tt.gtr))
 
+    start = time.time()
     #do NOT print out all full sequences if VCF - will be huge!
     if args.timetree or args.ancestral:
         if args.vcf:
             export_sequence_VCF(tt, path)
         else:
             export_sequence_fasta(T, path)
+    end = time.time()
+    print "Writing out VCF/Fasta took {}".format(str(end-start))

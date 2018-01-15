@@ -23,7 +23,7 @@ rule tree:
 		"tb/results/seq_gtr.txt",
 		"tb/results/tree_nuc_aln.vcf"
 	shell:
-		"python src/build_tree.py --path tb --timetree --iqtree --vcf --nthreads 2"
+		"python src/build_tree.py --path tb --timetree --iqtree --iqmodel TVM+R2 --vcf --nthreads 2"
 
 
 rule translate:
@@ -36,10 +36,8 @@ rule translate:
 		"tb/results/translation_reference.fasta",
 		"tb/results/translation.vcf"
 	shell:
-		"python src/translate.py --path tb --vcf --assignMuts --reference {input.gff}"
-		#"python src/translate.py --path tb --vcf --genes {input.genes} --reference {input.gff}"
-		#"python src/translate.py --path zika --vcf --reference zika/data/zika_outgroup.gb &&"
-		#"python src/assign_amino_acid_mutations.py --path zika"
+		"python src/translate.py --path tb --vcf --assignMuts --genes {input.genes} --reference {input.gff}"
+		#"python src/translate.py --path tb --vcf --assignMuts --reference {input.gff}"
 
 rule mugration:
 	input:
@@ -49,23 +47,23 @@ rule mugration:
 		"tb/results/region_gtr.txt",
 		"tb/results/country_gtr.txt"
 	shell:
-		"python src/mugration.py --path tb --field country  &&"
-		"python src/mugration.py --path tb --field region"
+		"python src/mugration.py --path tb --vcf --field country  &&"
+		"python src/mugration.py --path tb --vcf --field lineage  &&"
+		"python src/mugration.py --path tb --vcf --field region"
 
 rule export:
 	input:
-		"zika/results/region_gtr.txt",
-		"zika/results/country_gtr.txt",
-		"zika/results/tree.tsv",
-		"zika/results/tree_NS1_aln.fasta"
+		"tb/results/region_gtr.txt",
+		"tb/results/country_gtr.txt",
+		"tb/results/tree.tsv",
+		"tb/results/tree_nuc_aln.vcf",
+		gff = "tb/data/Mtb_H37Rv_NCBI_Annot.gff"
 	output:
-		"zika/auspice/zika_tree.json",
-		"zika/auspice/zika_sequence.json",
-		"zika/auspice/zika_entropy.json"
+		"tb/auspice/tb_tree.json",
+		"tb/auspice/tb_meta.json"
+		#"tb/auspice/tb_sequences.json",
+		#"tb/auspice/tb_entropy.json"
 	shell:
-		"python src/export_to_auspice.py --path zika --prefix zika --reference zika/data/zika_outgroup.gb"
-
-rule clean:
-	shell:
-		"rm -r zika/results &&"
-		"rm -r zika/auspice"
+		"python src/export_to_auspice.py --vcf --path tb --prefix tb --reference {input.gff}"
+		
+		
