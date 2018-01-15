@@ -47,7 +47,23 @@ rule mugration:
 		"tb/results/region_gtr.txt",
 		"tb/results/country_gtr.txt"
 	shell:
-		"python src/mugration.py --path tb --field country  &&"
-		"python src/mugration.py --path tb --field region"
+		"python src/mugration.py --path tb --vcf --field country  &&"
+		"python src/mugration.py --path tb --vcf --field lineage  &&"
+		"python src/mugration.py --path tb --vcf --field region"
 
-
+rule export:
+	input:
+		"tb/results/region_gtr.txt",
+		"tb/results/country_gtr.txt",
+		"tb/results/tree.tsv",
+		"tb/results/tree_nuc_aln.vcf",
+		gff = "tb/data/Mtb_H37Rv_NCBI_Annot.gff"
+	output:
+		"tb/auspice/tb_tree.json",
+		"tb/auspice/tb_meta.json"
+		#"tb/auspice/tb_sequences.json",
+		#"tb/auspice/tb_entropy.json"
+	shell:
+		"python src/export_to_auspice.py --vcf --path tb --prefix tb --reference {input.gff}"
+		
+		

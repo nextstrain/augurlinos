@@ -54,8 +54,8 @@ def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
         shutil.copyfile(aln_file+".treefile", out_file.replace(".nwk",".iqtree.nwk"))
         if clean_up:
             #allow user to see chosen model
-            shutil.copyfile('iqtree.log', out_file.replace("tree.nwk","iqtree.log")) 
-            os.remove('iqtree.log')   
+            shutil.copyfile('iqtree.log', out_file.replace("tree.nwk","iqtree.log"))
+            os.remove('iqtree.log')
             for filename in glob.glob(aln_file+".*"):
                 os.remove(filename)
     except:
@@ -156,7 +156,8 @@ def write_out_variable_fasta(compress_seq, path):
     #rotate into an alignment and turn into list of SeqRecord to output easily
     sites = np.asarray(sites)
     align = np.rot90(sites)
-    toFasta = [ SeqRecord(id=seqNames[i], seq=Seq("".join(align[i])), description='') for i in xrange(len(sequences.keys()))]
+    seqNamesCorr = list(reversed(seqNames))
+    toFasta = [ SeqRecord(id=seqNamesCorr[i], seq=Seq("".join(align[i])), description='') for i in xrange(len(sequences.keys()))]
 
     #now output this as fasta to read into raxml or iqtree
     SeqIO.write(toFasta, var_site_alignment(path), 'fasta')
@@ -264,7 +265,7 @@ if __name__ == '__main__':
         clade_index+=1
 
     Phylo.write(T, tree_newick(path), 'newick')
-    meta_dic = collect_tree_meta_data(T, fields)
+    meta_dic = collect_tree_meta_data(T, fields, args.vcf)
     write_tree_meta_data(path, meta_dic)
 
     with open(sequence_gtr_model(path),'w') as ofile:

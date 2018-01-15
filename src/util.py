@@ -61,9 +61,13 @@ def write_tree_meta_data(path, meta_dic, indent=1):
 
 
 
-def collect_tree_meta_data(T, fields, meta=None):
+def collect_tree_meta_data(T, fields, isvcf=False, meta=None):
     def mutation_format(muts):
-        return ",".join(['%s%d%s'%(x[0], x[1], x[2]) for x in muts])
+        if isvcf:
+            #converts from Python numbering [0] to standard [1] for output
+            return ",".join(['%s%d%s'%(x[0], x[1]+1, x[2]) for x in muts])
+        else:
+            return ",".join(['%s%d%s'%(x[0], x[1], x[2]) for x in muts])
 
     if meta is None:
         meta = {}
@@ -241,6 +245,7 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                 posLoc = np.where(headNP=='POS')[0][0]
                 refLoc = np.where(headNP=='REF')[0][0]
                 altLoc = np.where(headNP=='ALT')[0][0]
+                sampLoc = np.where(headNP=='FORMAT')[0][0]+1
                 samps = header[sampLoc:]
                 nsamp = len(samps)
 
@@ -263,6 +268,86 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
 
     return compress_seq
 
+def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
+    """
+    Reads in a vcf file where TRANSLATIONS have been stored and associated
+    reference sequence fasta (to which the VCF file is mapped)
+    This is the file output by "write_VCF_translation" below
+    
+    Returns a nested dict in the same format as is *input* in "write_VCF_translation" below,
+    with a nested dict for each gene, which contains 'sequences', 'positions', and 'reference'
+    """
+    from Bio import SeqIO
+    import numpy as np
+
+    prots = {}
+
+    posLoc = 0
+    refLoc = 0
+    altLoc = 0
+    sampLoc = 9
+
+    with open(vcf_file) as f:
+        for line in f:
+            if line[0] != '#':
+                #actual data
+                line = line.strip()
+                dat = line.split('\t')
+                POS = int(dat[posLoc])
+                REF = dat[refLoc]
+                ALT = dat[altLoc].split(',')
+                GEN = dat[0] #'CHROM' or the gene name here
+                calls = np.array(dat[sampLoc:])
+                
+                #get samples that differ from Ref at this site
+                recCalls = {}
+                k=0
+                for sa in calls:
+                    if sa != '.':
+                        recCalls[samps[k]] = sa
+                    k+=1
+
+                #store position and the altLoc
+                for seq, gen in recCalls.iteritems():
+                    alt = str(ALT[int(gen[0])-1])   #get the index of the alternate
+                    ref = REF
+                    pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
+                                    #will be from 0 because it's python!
+                    gen = GEN       #from CHROM, gene name
+                    
+                    if gen not in prots.keys():
+                        prots[gen] = {}
+                        prots[gen]['sequences'] = {}
+                        prots[gen]['positions'] = []
+                        prots[gen]['reference'] = ''
+                    if seq not in prots[gen]['sequences'].keys():
+                        prots[gen]['sequences'][seq] = {}
+                        
+                    #will never be insertion or deletion! because translation.
+                    prots[gen]['sequences'][seq][pos] = alt
+                    prots[gen]['positions'].append(pos)
+                
+            elif line[0] == '#' and line[1] == 'C':
+                #header line, get all the information
+                line = line.strip()
+                header = line.split('\t')
+                headNP = np.array(header)
+                posLoc = np.where(headNP=='POS')[0][0]
+                refLoc = np.where(headNP=='REF')[0][0]
+                altLoc = np.where(headNP=='ALT')[0][0]
+                sampLoc = np.where(headNP=='FORMAT')[0][0]+1 #first sample should be 1 after FORMAT column
+                samps = header[sampLoc:]
+                nsamp = len(samps)
+     
+
+    for refSeq in SeqIO.parse(translation_ref_file(path), format='fasta'):
+        prots[refSeq.name]['reference'] = str(refSeq.seq)
+        posN = np.array(prots[refSeq.name]['positions'])
+        posN = np.unique(posN)
+        prots[refSeq.name]['positions'] = np.sort(posN)
+
+    return prots
+    
 #####################################################
 # date parsing and conversions
 #####################################################
@@ -569,18 +654,29 @@ def safe_translate(sequence, report_exceptions=False):
 
 ### get genes and translations
 def get_genes_and_alignments(path, tree=True):
-    import glob
-    if tree:
-        from filenames import tree_sequence_alignment as func
-    else:
-        from filenames import ref_alignment as func
-
+    import os.path
+    from filenames import translation_ref_file, translation_vcf_file
+    
     genes = []
-    mask = func(path, prot='*')
-    aln_files = glob.glob(mask)
-    for aln_fname in aln_files:
-        gene = aln_fname.rstrip(mask.split("*")[-1]).lstrip(mask.split('*')[0])
-        genes.append((gene, aln_fname))
+    
+    if os.path.isfile(translation_ref_file(path)): #vcf file, use different method!
+        from Bio import SeqIO
+        for seq in SeqIO.parse(translation_ref_file(path), format='fasta'):
+            genes.append((seq.name, translation_vcf_file(path)))
+            
+    else:
+        import glob
+        if tree:
+            from filenames import tree_sequence_alignment as func
+        else:
+            from filenames import ref_alignment as func
+
+        mask = func(path, prot='*')
+        aln_files = glob.glob(mask)
+        for aln_fname in aln_files:
+            gene = aln_fname.rstrip(mask.split("*")[-1]).lstrip(mask.split('*')[0])
+            genes.append((gene, aln_fname))
+            
     return genes
 
 
@@ -620,6 +716,11 @@ def load_features(reference, feature_names=None):
                     fname = feat.qualifiers["locus_tag"][0]
                 if feature_names is None or fname in feature_names:
                     features[fname] = feat
+        
+        if feature_names is not None:
+            for fe in feature_names:
+                if fe not in features:
+                    print "Couldn't find gene {} in GFF or GenBank file".format(fe)
 
         in_handle.close()
 
@@ -710,3 +811,18 @@ def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
 
     with open(vcf_file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
+
+
+def load_lat_long_defs():
+    places = {}
+    with open('../fauna/source-data/geo_lat_long.tsv', 'r') as latlongfile:
+        header = latlongfile.readline().strip().split('\t')
+        for line in latlongfile:
+            try:
+                place, country, latitude, longitude = line.strip().split('\t')
+                places[place] = {'country_code':country,
+                                 'latitude':float(latitude),
+                                 'longitude':float(longitude)}
+            except:
+                print("trouble parsing", line)
+    return places

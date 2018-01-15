@@ -78,6 +78,8 @@ if __name__ == '__main__':
                         help='meta data field to perform discrete reconstruction on')
     parser.add_argument('--confidence',action="store_true",
                         help='record the distribution of subleading mugration states')
+    parser.add_argument('--vcf', action='store_true', default=False,
+                        help="sequence is in VCF format")
 
     args = parser.parse_args()
     path = args.path
@@ -104,7 +106,7 @@ if __name__ == '__main__':
         fields = [args.field]
 
     start = time.time()
-    collect_tree_meta_data(tt.tree, fields, meta=tree_meta)
+    collect_tree_meta_data(tt.tree, fields, isvcf=args.vcf, meta=tree_meta)
     write_tree_meta_data(path, tree_meta)
 
     with open(mugration_model(path, args.field),'w') as ofile:

@@ -1,8 +1,9 @@
 import numpy as np
 from util import (read_sequence_meta_data, read_tree_meta_data,
                   get_genes_and_alignments, generic_argparse)
-from filenames import tree_newick, tree_json, tree_sequence_alignment, sequence_json, diversity_json
-from util import write_json, load_features, diversity_statistics
+from filenames import (tree_newick, tree_json, tree_sequence_alignment,
+                       sequence_json, diversity_json, color_maps, meta_json)
+from util import write_json, load_features, diversity_statistics, load_lat_long_defs
 from Bio import Phylo
 
 
@@ -42,7 +43,7 @@ def tree_to_json(node, extra_attr = []):
 
 def attach_tree_meta_data(T, node_meta):
     def parse_mutations(muts):
-        return muts.split(',') if type(muts)==str else ""
+        return muts.split(',') if type(muts) in [str, unicode] else ""
 
     for n in T.find_clades(order='preorder'):
         n.attr={}
@@ -51,12 +52,12 @@ def attach_tree_meta_data(T, node_meta):
             if 'mutations' in field:
                 if field=='mutations':
                     muts = parse_mutations(val)
-                    if muts:
+                    if muts[0]: #must test if string empty, not array! causes NaN error in Auspice
                         n.__setattr__('muts', muts)
                 else:
                     prot = '_'.join(field.split('_')[:-1])
                     muts = parse_mutations(val)
-                    if muts:
+                    if muts[0]: #must test if string is empty, not array!
                         n.aa_muts[prot] = muts
             elif field in ['branch_length', 'mutation_length', 'clock_length',
                            'clade', 'num_date']:
@@ -103,53 +104,94 @@ def export_sequence_json(T, path, prefix, indent=None):
     write_json(elems, fname, indent=indent)
 
 
-def export_metadata_json(T, path, prefix, indent):
+def export_metadata_json(T, path, prefix, reference, isvcf=False, indent=1):
     print("Writing out metaprocess")
-    meta_json = {}
+    mjson = {}
 
-    meta_json["virus_count"] = T.count_terminals()
-    from datetime.date import today
-    meta_json["updated"] = today().strftime('%Y-%m-%d')
-    meta_json["author_info"] = {}
-    meta_json["seq_author_map"] = {}
+    mjson["virus_count"] = T.count_terminals()
+    from datetime import date
+    mjson["updated"] = date.today().strftime('%Y-%m-%d')
+    mjson["author_info"] = {
+        "?": {
+           "paper_url": "?",
+           "journal": "?",
+           "title": "?",
+           "n": 1
+        }}
+    mjson["seq_author_map"] = {}
 
+    from collections import defaultdict
+    cmaps = defaultdict(list)
+    with open(color_maps(path), 'r') as cfile:
+        for line in cfile:
+            try:
+                trait, name, color = line.strip().split('\t')
+            except:
+                continue
+            cmaps[trait].append((name, color))
 
-    # join up config color options with those in the input JSONs.
-    col_opts = process.config["auspice"]["color_options"]
-    if process.colors:
-        for trait, col in process.colors.iteritems():
-            if trait in col_opts:
-                col_opts[trait]["color_map"] = col
-            else:
-                process.log.warn("{} in colors (input JSON) but not auspice/color_options. Ignoring".format(trait))
+    mjson["color_options"] = {
+      "gt": {
+           "menuItem": "genotype",
+           "type": "discrete",
+           "legendTitle": "Genotype",
+           "key": "genotype"
+          },
+       "num_date": {
+           "menuItem": "date",
+           "type": "continuous",
+           "legendTitle": "Sampling date",
+           "key": "num_date"
+          }}
+    for trait in cmaps:
+        mjson["color_options"][trait] = {
+        "menuItem":trait,
+        "type":"discrete",
+        "color_map":cmaps[trait],
+        "legendTitle":trait,
+        "key":trait
+        }
 
-    meta_json["color_options"] = col_opts
-    if "date_range" in process.config["auspice"]:
-        meta_json["date_range"] = process.config["auspice"]["date_range"]
-    if "analysisSlider" in process.config["auspice"]:
-        meta_json["analysisSlider"] = process.config["auspice"]["analysisSlider"]
-    meta_json["panels"] = process.config["auspice"]["panels"]
-    meta_json["updated"] = time.strftime("X%d %b %Y").replace('X0','X').replace('X','')
-    meta_json["title"] = process.info["title"]
-    meta_json["maintainer"] = process.info["maintainer"]
-    meta_json["filters"] = process.info["auspice_filters"]
+    mjson["panels"] = [
+        "tree",
+        "map",
+        "entropy"
+        ]
+    mjson["title"] = "NextTB"
+    mjson["maintainer"] = "Emma Hodcroft"
+    mjson["geo"] = {}
+    lat_long_defs = load_lat_long_defs()
+    for geo_trait in ['region', "country"]:
+        mjson["geo"][geo_trait] = {}
+        for n in T.find_clades():
+            place = n.attr[geo_trait]
+            if  (place not in mjson["geo"][geo_trait]
+                 and place in lat_long_defs):
+                mjson["geo"][geo_trait][place] = lat_long_defs[place]
 
-    if "defaults" in process.config["auspice"]:
-        meta_json["defaults"] = process.config["auspice"]["defaults"]
+    mjson["commit"] = "unknown"
+    mjson["filters"] = ["country", "region"]
 
-    try:
-        from pygit2 import Repository, discover_repository
-        current_working_directory = os.getcwd()
-        repository_path = discover_repository(current_working_directory)
-        repo = Repository(repository_path)
-        commit_id = repo[repo.head.target].id
-        meta_json["commit"] = str(commit_id)
-    except ImportError:
-        meta_json["commit"] = "unknown"
-    if len(process.config["auspice"]["controls"]):
-        meta_json["controls"] = process.make_control_json(process.config["auspice"]["controls"])
-    meta_json["geo"] = process.lat_longs
-    write_json(meta_json, prefix+'_meta.json')
+    genes = load_features(reference)
+    anno = {}
+    for feat, aln_fname in get_genes_and_alignments(path, tree=False):
+        if feat in genes:
+            anno[feat] = {"start":int(genes[feat].location.start),
+                          "end":int(genes[feat].location.end),
+                          "strand":genes[feat].location.strand}
+                          
+    if isvcf:
+        #if vcf, there is no 'gene' called 'nuc' that will be read in
+        #above, so manually include it here.
+        from filenames import ref_fasta
+        from Bio import SeqIO
+        refSeq = SeqIO.parse(ref_fasta(path), format='fasta').next()
+        anno['nuc'] =   {"start":1,
+                         "end":len(refSeq.seq),
+                         "strand":1 }
+                         
+    mjson["annotations"] = anno
+    write_json(mjson, meta_json(path,prefix), indent=indent)
 
 
 def export_diversity(path, prefix, reference, indent=None):
@@ -189,7 +231,9 @@ if __name__ == '__main__':
                         help="prefix for json files that are passed on to auspice (e.g., zika.fasta)")
     parser.add_argument('--reference', required=True,
                         help="reference sequence needed for entropy feature export")
-
+    parser.add_argument('--vcf', action='store_true', default=False,
+                        help="sequence is in VCF format")
+                        
     args = parser.parse_args()
     path = args.path
 
@@ -198,10 +242,16 @@ if __name__ == '__main__':
     tree_meta = read_tree_meta_data(path)
     attach_tree_meta_data(T, tree_meta)
     tree_layout(T)
-    fields_to_export = tree_meta.values()[0].keys()+["tvalue","yvalue", "xvalue", "attr","muts", "aa_muts"]
+    fields_to_export = tree_meta.values()[0].keys()+["tvalue","yvalue", "xvalue", "attr", "muts", "aa_muts"]
     tjson = tree_to_json(T.root, extra_attr=fields_to_export)
     write_json(tjson, tree_json(path, args.prefix))
 
-    export_sequence_json(T, path, args.prefix, indent=1)
+    if not args.vcf:
+        #Aupice will soon not need these, and getting them from VCF
+        #files is not efficient (processing or memory), so simply
+        #do not make if VCF file format. 
+        export_sequence_json(T, path, args.prefix, indent=1)
+        export_diversity(path, args.prefix, args.reference)
 
-    export_diversity(path, args.prefix, args.reference, indent=1)
+    export_metadata_json(T, path, args.prefix, args.reference, args.vcf)
+

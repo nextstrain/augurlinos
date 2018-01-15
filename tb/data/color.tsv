@@ -1,0 +1,69 @@
+region southeast_asia	#4292c6
+country	laos	#deebf7
+country	philippines	#c6dbef
+country	indonesia	#9ecae1
+country	cambodia	#6baed6
+country	malaysia	#4292c6
+country	thailand	#2171b5
+country	singapore	#08519c
+country	myanmar	#08306b
+
+region	africa	#41ab5d
+country	gambia	#e5f5e0
+country	tanzania	#c7e9c0
+country	comoros	#a1d99b
+country	eritrea	#74c476
+country	senegal	#41ab5d
+country	burkina_faso	#238b45
+country	liberia	#006d2c
+country	somalia	#00441b
+country	ghana	#d9f0a3
+country	ethiopia	#ce1256
+
+region	west_asia	#f16913
+country	iran	#fdae6b
+country	turkey	#fd8d3c
+country	afghanistan	#f16913
+country	turkmenistan	#d94801
+country	pakistan	#a63603
+country	mongolia	#7f2704
+country	russia	#fdd0a2
+
+region	north_america	#807dba
+country	mexico	#3f007d
+country	nicaragua	#54278f
+country	guatemala	#6a51a3
+country	el_salvador	#807dba
+country	puerto_rico	#9e9ac8
+country	canada	#bcbddc
+
+region	europe	#cb181d
+country	portugal	#cb181d
+country	germany	#a50f15
+country	serbia	#67000d
+country	netherlands	#c994c7
+
+region south_america	#fb6a4a
+country	suriname	#ef3b2c
+country	colombia	#fb6a4a
+
+region japan_korea	#f768a1
+country	japan	#dd3497
+country	south_korea	#f768a1
+
+region	china	#fcc5c0
+country	china	#fcc5c0
+
+region	south_asia	#fee391
+country	sri_lanka	#fee391
+country	nepal	#fff7bc
+country	india	#fec44f
+
+lineage	L3	#e41a1c
+lineage	L1	#377eb8
+lineage	Animal	#4daf4a
+lineage	L4	#984ea3
+lineage	L2	#ff7f00
+lineage	L5	#ffff33
+lineage	L6	#a65628
+lineage	L7	#f781bf

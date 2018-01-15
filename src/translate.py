@@ -106,6 +106,7 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
     print "Reading in VCF took {}".format(str(end-start))
 
     start = time.time()
+    featN = np.array(feature_names)
     selected_features = load_features(reference, feature_names)
     print "Translating {} genes...".format(len(selected_features))
     end = time.time()
@@ -131,6 +132,7 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
             prots[fname] = prot_dict
         else:
             deleted.append(fname)
+
     end = time.time()
     print "Translations took {}".format(str(end-start))
 
@@ -188,9 +190,10 @@ def assign_amino_acid_muts_vcf(prots, path):
         #[ancestral][position][mutation]
         while i < len(positions):
             pi = positions[i]
+            pos = pi+1 #convert to standard numbering for output (# starts at 1)
             refb = ref[pi]
 
-            pattern = [ refb+str(pi)+sequences[k][pi] if pi in sequences[k].keys()
+            pattern = [ refb+str(pos)+sequences[k][pi] if pi in sequences[k].keys()
                         else "" for k,v in sequences.iteritems() ]
             pats.append(pattern)
             i+=1
@@ -219,6 +222,10 @@ def get_genes_from_file(fname):
                     genes.append(fields[0].strip())
     else:
         print("File with genes not found. Looking for", fname)
+
+    featN = np.array(genes)
+    if len(np.unique(featN)) != len(genes):
+        print "You have duplicates in your genes file. They are being ignored."
 
     return genes
 
