@@ -1,0 +1,76 @@
+segments = ['pb2', 'pb1', 'pa', 'ha', 'np', 'na', 'ns']
+viruses = ['h3n2']
+def refseq(v):
+	references = {'h3n2':"A/Beijing/32/1992"}
+	return references[v.virus]
+
+input_files=expand("../fauna/data/{v}_{seg}.fasta", seg=segments, v=viruses)
+original_sequence=expand("seasonal_flu/{v}/{seg}/results/orig.fasta", seg=segments, v=viruses)
+meta_files=expand("seasonal_flu/{v}/{seg}/results/meta.tsv", seg=segments, v=viruses)
+alignments=expand("seasonal_flu/{v}/{seg}/results/nuc_aln.fasta", seg=segments, v=viruses)
+trees=expand("seasonal_flu/{v}/{seg}/results/tree.nwk", seg=segments, v=viruses)
+translations=expand("seasonal_flu/{v}/{seg}/results/tree_HA1_aln.fasta", seg=segments, v=viruses)
+jsons = expand("seasonal_flu/{v}/{seg}/auspice/flu_{v}_{seg}_3y_tree.json", seg=segments, v=viruses)
+
+rule all:
+	input:
+		jsons
+
+rule prepare:
+	input:
+		"/home/richard/scicore/neher/nextstrain/augur/builds/flu/prepared/flu_{virus}_test_{segment}_3y.fasta"
+	output:
+		"seasonal_flu/{virus}/{segment}/results/orig.fasta"
+	params:
+		 path="seasonal_flu/{virus}/{segment}"
+	shell:
+		"python src/prepare.py --sequences {input} --path {params.path}"
+
+rule align:
+	input:
+		sequences="seasonal_flu/{virus}/{segment}/results/orig.fasta",
+		refseq="seasonal_flu/{virus}/metadata/{virus}_{segment}_outgroup.gb"
+	output:
+		"seasonal_flu/{virus}/{segment}/results/ref_nuc_aln.fasta"
+	params:
+		path="seasonal_flu/{virus}/{segment}",
+		ref = refseq
+	shell:
+		"python src/align.py --path  {params.path} --reference {input.refseq} &&"
+		"python src/map_to_reference.py --path {params.path} --reference {params.ref}"
+
+
+rule tree:
+	input:
+		"seasonal_flu/{virus}/{segment}/results/ref_nuc_aln.fasta"
+	output:
+		"seasonal_flu/{virus}/{segment}/results/tree.nwk",
+		"seasonal_flu/{virus}/{segment}/results/tree.tsv",
+		"seasonal_flu/{virus}/{segment}/results/tree_nuc_aln.fasta"
+	params:
+		path="seasonal_flu/{virus}/{segment}",
+	shell:
+		"python src/build_tree.py --path {params.path} --timetree --nthreads 2 --confidence"
+
+
+rule mutation_assignment:
+	input:
+		"seasonal_flu/{virus}/{segment}/results/tree.nwk",
+		"seasonal_flu/{virus}/{segment}/results/tree.tsv"
+	output:
+		"seasonal_flu/{virus}/{segment}/results/tree_HA1_aln.fasta",
+	params:
+		path="seasonal_flu/{virus}/{segment}",
+	shell:
+		"python src/mutual_mutation_assignment.py --path {params.path}"
+
+rule export:
+	input:
+		"seasonal_flu/{virus}/{segment}/results/tree_HA1_aln.fasta"
+	output:
+		"seasonal_flu/{virus}/{segment}/auspice/flu_{virus}_{segment}_3y_tree.json"
+	params:
+		path="seasonal_flu/{virus}/{segment}",
+		prefix="flu_{virus}_{segment}_3y"
+	shell:
+		"python src/export_to_auspice.py --path {params.path} --no_sequence --no_diversity --no_meta --prefix {params.prefix}"

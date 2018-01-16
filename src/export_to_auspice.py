@@ -222,8 +222,14 @@ if __name__ == '__main__':
     parser =  generic_argparse("Export precomputed data as auspice jsons")
     parser.add_argument('--prefix', required=True,
                         help="prefix for json files that are passed on to auspice (e.g., zika.fasta)")
-    parser.add_argument('--reference', required=True,
+    parser.add_argument('--reference',
                         help="reference sequence needed for entropy feature export")
+    parser.add_argument('--no_sequence', action="store_true",
+                        help="")
+    parser.add_argument('--no_meta', action="store_true",
+                        help="")
+    parser.add_argument('--no_diversity', action="store_true",
+                        help="")
 
     args = parser.parse_args()
     path = args.path
@@ -237,8 +243,11 @@ if __name__ == '__main__':
     tjson = tree_to_json(T.root, extra_attr=fields_to_export)
     write_json(tjson, tree_json(path, args.prefix))
 
-    export_sequence_json(T, path, args.prefix)
+    if not args.no_sequence:
+        export_sequence_json(T, path, args.prefix)
 
-    export_diversity(path, args.prefix, args.reference)
+    if not args.no_diversity:
+        export_diversity(path, args.prefix, args.reference)
 
-    export_metadata_json(T, path, args.prefix, args.reference)
+    if not args.no_meta:
+        export_metadata_json(T, path, args.prefix, args.reference)

@@ -46,6 +46,7 @@ if __name__ == '__main__':
                         help = "file with input sequences as fasta")
     args = parser.parse_args()
     path = args.path
+    base_path = '/'.join(path.split('/')[:-1])+'/'
 
     header_fields = {0:'strain', 2:'accession', 3:'date', 4:'region', 5:'country',
                     6:'division', 8:'db', 10:'authors', 11:'url', 12:'title',
@@ -53,7 +54,8 @@ if __name__ == '__main__':
 
     sequences, meta = parse_fasta(args.sequences, header_fields)
 
-    dropped_strains = get_dropped_strains(path)
+    dropped_strains = get_dropped_strains(base_path)
+    print(dropped_strains)
     sequences = {k:v for k,v in sequences.items() if k not in dropped_strains}
     meta = {k:v for k,v in meta.items() if k not in dropped_strains}
 

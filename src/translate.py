@@ -21,13 +21,13 @@ def translate_feature(aln, feature):
     return MultipleSeqAlignment(translations)
 
 
-def translate(aln_fname, reference, name_func, feature_names=None):
+def translate(aln_fname, reference, name_func, feature_names=None, feature_key="locus_tag"):
     try:
         aln = AlignIO.read(aln_fname, 'fasta')
     except:
         print("Loading input alignment failed!:", aln_fname)
 
-    selected_features = load_features(reference, feature_names)
+    selected_features = load_features(reference, feature_names, feature_key=feature_key)
 
     for fname, feature in selected_features.items():
         translation = translate_feature(aln, feature)
@@ -152,8 +152,8 @@ def get_amino_acid_mutations(tree, fname):
         seqs[seq.name] = seq
 
     muts = {}
-    muts[T.root.name]=''
-    for node in T.get_nonterminals():
+    muts[tree.root.name]=''
+    for node in tree.get_nonterminals():
         pseq = seqs[node.name]
         for c in node:
             cseq = seqs[c.name]
@@ -162,6 +162,46 @@ def get_amino_acid_mutations(tree, fname):
                         if anc!=der])
 
     return muts
+
+
+def assign_clades(path, ha_nuc_file, clades):
+    from collections import defaultdict
+    tree_meta = read_tree_meta_data(path)
+    all_sequences = defaultdict(dict)
+
+    aln = AlignIO.read(ha_nuc_file, 'fasta')
+    for seq in aln:
+        all_sequences[seq.name]['ha_nuc'] = seq
+    for gene, aln_fname in get_genes_and_alignments(path, tree=True):
+        aln = AlignIO.read(aln_fname, 'fasta')
+        for seq in aln:
+            all_sequences[seq.name][gene] = seq
+    match_clades(all_sequences, clades, tree_meta)
+    write_tree_meta_data(path, tree_meta)
+    return tree_meta
+
+
+def match_clades(all_sequences, clades, metadata, offset=-1):
+    '''
+    finds branches in the tree corresponding to named clades by searching for the
+    oldest node with a particular genotype.
+    - params
+        - clades: a dictionary with clade names as keys and lists of genoypes as values
+        - offset: the offset to be applied to the position specification, typically -1
+                  to conform with counting starting at 0 as opposed to 1
+    '''
+    def match(seq_set, genotype):
+        return all([seq_set[gene][pos+offset]==state if (('nuc' not in gene) and (gene in seq_set)) else True
+                    for gene, pos, state in genotype])
+
+    for n in metadata.values():
+        n["named_clades"]=[]
+    seqs = filter(lambda x:x in metadata, all_sequences)
+    for clade_name, genotype in clades.iteritems():
+        matching_nodes = filter(lambda x:match(all_sequences[x],genotype), seqs)
+        if len(matching_nodes):
+            for n in matching_nodes:
+                metadata[n]["named_clades"].append(clade_name)
 
 
 def assign_amino_acid_muts_vcf(prots, path):
@@ -255,7 +295,7 @@ if __name__ == '__main__':
             if os.path.isfile(aln_fname):
                 translate(aln_fname,
                       args.reference,
-                      lambda x:func(path, x), genes)
+                      lambda x:func(path, x), genes, feature_key="gene")
 
         if args.assignMuts:
             tree_meta = read_tree_meta_data(path)
@@ -268,3 +308,8 @@ if __name__ == '__main__':
                 for node_name in tree_meta:
                     tree_meta[node_name][gene+'_mutations'] = muts[node_name]
             write_tree_meta_data(path, tree_meta)
+
+        if args.assingClades:
+            assign_clades(path, clades)
+
+

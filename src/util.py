@@ -1,5 +1,13 @@
 import numpy as np
 
+def load_reference(fname):
+    from Bio import SeqIO
+    ref = SeqIO.read(fname, 'genbank')
+    if ref.features[0].type=="source" and "strain" in ref.features[0].qualifiers:
+        ref.id = ref.features[0].qualifiers["strain"][0]
+        ref.name = ref.id
+    return ref
+
 def generic_argparse(desc):
     import argparse
     parser = argparse.ArgumentParser(
@@ -485,7 +493,7 @@ def get_genes_and_alignments(path, tree=True):
     mask = func(path, prot='*')
     aln_files = glob.glob(mask)
     for aln_fname in aln_files:
-        gene = aln_fname.rstrip(mask.split("*")[-1]).lstrip(mask.split('*')[0])
+        gene = aln_fname.replace(mask.split("*")[-1],"").replace(mask.split('*')[0],"")
         genes.append((gene, aln_fname))
     return genes
 
@@ -507,7 +515,7 @@ def diversity_statistics(fname, nuc=True):
     return entropy
 
 
-def load_features(reference, feature_names=None):
+def load_features(reference, feature_names=None, feature_key="locus_tag"):
     #read in appropriately whether GFF or Genbank
     #checks explicitly for GFF otherwise assumes Genbank
     features = {}
@@ -529,9 +537,9 @@ def load_features(reference, feature_names=None):
     else:
         from Bio import SeqIO
         for feat in SeqIO.read(reference, 'genbank').features:
-            if feat.type=='CDS':
-                if "locus_tag" in feat.qualifiers:
-                    fname = feat.qualifiers["locus_tag"][0]
+            if feat.type=='gene':
+                if feature_key in feat.qualifiers:
+                    fname = feat.qualifiers[feature_key][0]
                     if feature_names is None or fname in feature_names:
                         features[fname] = feat
 
