@@ -71,7 +71,7 @@ def attach_tree_meta_data(T, node_meta):
     T.root.attr['div']=0
     for n in T.get_nonterminals(order='preorder'):
         for c in n:
-            bl =  n.mutation_length if hasattr(n, "mutation_length") else "branch_length"
+            bl =  c.mutation_length if hasattr(c, "mutation_length") else c.branch_length
             c.attr["div"] = n.attr["div"] + bl
 
 
@@ -107,7 +107,7 @@ def export_sequence_json(T, path, prefix):
     write_json(elems, fname, indent=indent)
 
 
-def export_metadata_json(T, path, prefix, reference, indent=1):
+def export_metadata_json(T, path, prefix, reference, indent=None):
     print("Writing out metaprocess")
     mjson = {}
 
@@ -241,7 +241,7 @@ if __name__ == '__main__':
     tree_layout(T)
     fields_to_export = tree_meta.values()[0].keys()+["tvalue","yvalue", "xvalue", "attr", "muts", "aa_muts"]
     tjson = tree_to_json(T.root, extra_attr=fields_to_export)
-    write_json(tjson, tree_json(path, args.prefix))
+    write_json(tjson, tree_json(path, args.prefix), indent=None)
 
     if not args.no_sequence:
         export_sequence_json(T, path, args.prefix)

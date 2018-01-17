@@ -18,7 +18,7 @@ rule all:
 
 rule prepare:
 	input:
-		"/home/richard/scicore/neher/nextstrain/augur/builds/flu/prepared/flu_{virus}_test_{segment}_3y.fasta"
+		"/scicore/home/neher/neher/nextstrain/augur/builds/flu/prepared/flu_{virus}_test_{segment}_3y.fasta"
 	output:
 		"seasonal_flu/{virus}/{segment}/results/orig.fasta"
 	params:
@@ -36,6 +36,8 @@ rule align:
 		path="seasonal_flu/{virus}/{segment}",
 		ref = refseq
 	shell:
+		"export PATH=/scicore/home/neher/GROUP/bin/anaconda2/bin:/scicore/home/neher/GROUP/bin:$PATH && "
+		"ml MAFFT && "
 		"python src/align.py --path  {params.path} --reference {input.refseq} &&"
 		"python src/map_to_reference.py --path {params.path} --reference {params.ref}"
 
@@ -50,7 +52,8 @@ rule tree:
 	params:
 		path="seasonal_flu/{virus}/{segment}",
 	shell:
-		"python src/build_tree.py --path {params.path} --timetree --nthreads 2 --confidence"
+		"export PATH=/scicore/home/neher/GROUP/bin/anaconda2/bin:/scicore/home/neher/GROUP/bin:$PATH && "
+		"/scicore/home/neher/GROUP/bin/anaconda2/bin/python src/build_tree.py --path {params.path} --timetree --nthreads 2 --confidence"
 
 
 rule mutation_assignment:
@@ -62,7 +65,8 @@ rule mutation_assignment:
 	params:
 		path="seasonal_flu/{virus}/{segment}",
 	shell:
-		"python src/mutual_mutation_assignment.py --path {params.path}"
+		"export PATH=/scicore/home/neher/GROUP/bin/anaconda2/bin:/scicore/home/neher/GROUP/bin:$PATH && "
+		"/scicore/home/neher/GROUP/bin/anaconda2/bin/python src/mutual_mutation_assignment.py --path {params.path}"
 
 rule export:
 	input:
@@ -73,4 +77,5 @@ rule export:
 		path="seasonal_flu/{virus}/{segment}",
 		prefix="flu_{virus}_{segment}_3y"
 	shell:
-		"python src/export_to_auspice.py --path {params.path} --no_sequence --no_diversity --no_meta --prefix {params.prefix}"
+		"export PATH=/scicore/home/neher/GROUP/bin/anaconda2/bin:/scicore/home/neher/GROUP/bin:$PATH && "
+		"/scicore/home/neher/GROUP/bin/anaconda2/bin/python src/export_to_auspice.py --path {params.path} --no_sequence --no_diversity --no_meta --prefix {params.prefix}"

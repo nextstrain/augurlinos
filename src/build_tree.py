@@ -119,11 +119,11 @@ def write_out_variable_fasta(compress_seq, path):
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
     from Bio.Seq import Seq
-    
+
     sequences = compress_seq['sequences']
     ref = compress_seq['reference']
     positions = compress_seq['positions']
-    
+
     #get sequence names
     seqNames = sequences.keys()
 
@@ -156,7 +156,7 @@ if __name__ == '__main__':
                        help='coalescence time scale measured in substitution rate units')
     parser.add_argument('--keeproot', action='store_true', default=False,
                         help="don't reroot the tree")
-    
+
     #EBH 4 Dec 2017
     parser.add_argument('--iqtree', action='store_true', default=False,
                         help="use iqtree for initial tree building")
@@ -164,33 +164,33 @@ if __name__ == '__main__':
                         help="use raxml for initial tree building")
     parser.add_argument('--vcf', action='store_true', default=False,
                         help="sequence is in VCF format")
-                        
+
     args = parser.parse_args()
     path = args.path
 
     date_fmt = '%Y-%m-%d'
-    
+
     if args.vcf:
         #read in VCF and reference fasta and store
         compress_seq = read_in_vcf(recode_gzvcf_name(path), ref_fasta(path))
         sequences = compress_seq['sequences']
         ref = compress_seq['reference']
-    
-        #write out the reduced fasta (only variable sites) to be read in 
+
+        #write out the reduced fasta (only variable sites) to be read in
         #by iqtree/raxml/fasttree  ("var_site_alignment(path)")
         write_out_variable_fasta(compress_seq, path)
-    
+
     if args.vcf:
         treebuild_align = var_site_alignment(path)
     else:
         treebuild_align = ref_alignment(path)
-    
+
     if args.raxml:
         T = build_raxml(treebuild_align, tree_newick(path), path)
     elif args.iqtree:
         T = build_iqtree(treebuild_align, tree_newick(path))
     else: #use fasttree
-        T = build_fasttree(treebuild_align, tree_newick(path))
+        T = build_fasttree(treebuild_align, tree_newick(path), clean_up=False)
 
     meta = read_sequence_meta_data(path)
     fields = ['branchlength', 'clade']
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         if args.vcf:
             tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence,
                           seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
-        else: 
+        else:
             tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
                           seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
 

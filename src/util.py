@@ -278,7 +278,7 @@ def ambiguous_date_to_date_range(mydate, fmt):
 # IO
 ##########################################
 
-def write_json(data, file_name, indent=1):
+def write_json(data, file_name, indent=None):
     import json
     try:
         handle = open(file_name, 'w')
