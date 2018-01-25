@@ -124,7 +124,7 @@ def export_sequence_VCF(tt, path):
     write_VCF_style_alignment(tree_dict, tree_vcf_alignment(path,'nuc'))
 
 
-def write_out_variable_fasta(compress_seq, path):
+def write_out_variable_fasta(compress_seq, path, drmfile=None):
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
     from Bio.Seq import Seq
@@ -132,6 +132,21 @@ def write_out_variable_fasta(compress_seq, path):
     sequences = compress_seq['sequences']
     ref = compress_seq['reference']
     positions = compress_seq['positions']
+
+    #If want to exclude DRMs from initial treebuild, read in here
+    #and remove from the positions we're going to include in var sites
+    if drmfile:
+        from util import read_in_DRMs
+        DRM_info = read_in_DRMs(drmfile)
+        drmPositions = DRM_info['drmPositions']
+
+        toDel = []
+        for drmKey in drmPositions:
+            temp = np.where(positions==drmKey)[0]
+            if len(temp)!=0:
+                toDel.append(temp[0])
+
+        positions = np.delete(positions, toDel)
 
     #get sequence names
     seqNames = sequences.keys()
@@ -149,6 +164,7 @@ def write_out_variable_fasta(compress_seq, path):
         #pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
         un = np.unique(pattern, return_counts=True)
         if len(un[0])==2 and min(un[1])==1: #'singleton' mutation - only happens in 1 seq
+        #if len(un[0])==1: #don't write out identical bases
             False #don't append! (python makes me put something here)
         else:
             sites.append(pattern)
@@ -190,6 +206,8 @@ if __name__ == '__main__':
 
     #EBH 5 Jan 2018
     parser.add_argument('--iqmodel', nargs=1, help='model to use with iqtree')
+    parser.add_argument('--drm', type=str,
+                        help="file of DRMs to exclude from inital tree-building")
 
     args = parser.parse_args()
     path = args.path
@@ -210,7 +228,7 @@ if __name__ == '__main__':
         #write out the reduced fasta (only variable sites) to be read in
         #by iqtree/raxml/fasttree  ("var_site_alignment(path)")
         start = time.time()
-        write_out_variable_fasta(compress_seq, path)
+        write_out_variable_fasta(compress_seq, path, args.drm)
         end = time.time()
         print "Writing out variable sites took {}".format(str(end-start))
 

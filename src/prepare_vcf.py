@@ -1,10 +1,15 @@
 from __future__ import division, print_function
 import os
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
 import pandas as pd
-from filenames import orig_meta_file_name, sequence_input, dropped_strains_file_name, recode_gzvcf_name, meta_file_name, ref_fasta
-from util import write_sequence_meta_data, generic_argparse
+import numpy as np
+import gzip
 from shutil import copyfile
+from filenames import (orig_meta_file_name, sequence_input, dropped_strains_file_name, recode_gzvcf_name,
+    meta_file_name, ref_fasta, results_dir)
+from util import write_sequence_meta_data, generic_argparse
 
 def get_dropped_strains(path):
     fname = dropped_strains_file_name(path)
@@ -21,6 +26,48 @@ def get_dropped_strains(path):
     return dropped_strains
 
 
+def mask_sites(path, ref, strip_loci):
+    refSeq = SeqIO.parse(ref, format='fasta').next()
+    refStr = str(refSeq.seq)
+
+    maskArray = np.full(len(refStr),"0") #create masking Fasta for VCFTools to use
+    maskedRef = np.array(list(refStr)) #to 'mask' the ref sequence
+
+    df = pd.read_csv(strip_loci, sep='\t')
+    for mi, m in df.iterrows():
+        maskArray[(m.ChromStart-1):m.ChromEnd] = '1'
+        maskedRef[(m.ChromStart-1):m.ChromEnd] = 'N'
+
+    #need to get the CHROM name from the VCF file..
+    with gzip.open(recode_gzvcf_name(path)) as f:
+        for line in f:
+            if line[0] != '#':
+                line = line.strip()
+                header = line.split('\t')
+                chromName = header[0]
+                break
+
+    exclude = []
+    for i in xrange(len(maskArray)):
+        if maskArray[i] == '1':
+            exclude.append(chromName+"\t"+str(i+1))
+
+    maskRefFile = ref+"_temp"
+    with open(maskRefFile, 'w') as the_file:
+        the_file.write("\n".join(exclude))
+
+    maskedRef_seqRec = SeqRecord(seq=Seq("".join(maskedRef)),name=refSeq.name, id=refSeq.name, description='')
+
+    #I stopped masking the Ref because I was unsure if the many columns of
+    #N were causing problems later. Removing all variance and allowing these
+    #regions to be the same as Ref should be the same, anyway.
+
+    #with open(ref_fasta(path), "w") as output_handle:
+    #    SeqIO.write(maskedRef_seqRec, output_handle, "fasta")
+
+    return maskRefFile
+
+
 
 if __name__ == '__main__':
     #to do - add so can pass vcf file instead of gzvcf file?
@@ -33,16 +80,38 @@ if __name__ == '__main__':
                         help = "file with input sequences as gunzipped vcf")
     parser.add_argument("--ref", required=True, type=str,
                         help = "fasta file with reference sequence that vcf is mapped to")
+    parser.add_argument("--strip_loci", required=False, type=str,
+                        help = "file that contains loci to strip from analysis")
     args = parser.parse_args()
     path = args.path
 
+    #VCFTools doesn't make directories if they don't exist
+    if not os.path.isdir(results_dir(path)):
+        os.makedirs(results_dir(path))
+
     #First copy to recode and rename and put in results
     call = ["vcftools --gzvcf", args.gzvcf, "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
-    print("VCFTools call:")
+    #print("VCFTools call:")
     print(" ".join(call))
     os.system(" ".join(call))
 
-    #Get any sequences to be dropped
+    ###See if want to mask sites
+    if args.strip_loci:
+        #This masks the ref sequence AND removes those sites from the VCF
+
+        maskRefFile = mask_sites(path, args.ref, args.strip_loci)
+
+        #for some reason vcftools doesn't seem to work if input and output are the same file
+        #so create a copy we'll delete in a few lines
+        #This uses the 'mask' file to remove the sites from the VCF
+        copyfile(recode_gzvcf_name(path), recode_gzvcf_name(path)+"_temp")
+        call = ["vcftools", "--exclude-positions", maskRefFile, "--gzvcf", recode_gzvcf_name(path)+"_temp", "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
+        print("Removing masked sites from VCF file... this may take some time.")
+        os.system(" ".join(call))
+        os.remove(recode_gzvcf_name(path)+"_temp")
+        os.remove(maskRefFile)
+
+    ###Get any sequences to be dropped
     dropped_strains = get_dropped_strains(path)
 
     #if some dropped, remove them in a loop
@@ -61,13 +130,16 @@ if __name__ == '__main__':
         df = df[~df['strain'].isin(dropped_strains)]
         write_sequence_meta_data(path, df)
 
-    else:
-        #if none dropped, just copy the meta file to results
+
+    #If the meta file hasn't already been written (b/c dropped strains), copy it
+    if not os.path.isfile(meta_file_name(path)):
         copyfile(orig_meta_file_name(path), meta_file_name(path))
 
+    #If the reference file hasn't already been written (b/c masking sites), copy it
+    if not os.path.isfile(ref_fasta(path)):
+        copyfile(args.ref, ref_fasta(path))
+
     os.remove('out.log') #remove vcftools log file thing.
-    #finally copy the reference fasta so we know where it is and what its called
-    copyfile(args.ref, ref_fasta(path))
 
     end = time.time()
     print("Prepare took {}".format(str(end-start)))

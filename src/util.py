@@ -176,13 +176,13 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                         gt = sa.split(':')[0]
                     else: #if 'pseudo' VCF file (nextstrain output)
                         gt = sa
-                    if gt != '.':
+                    if gt != '.' and gt[0] != '.' and gt[0] != '0':
                         recCalls[samps[k]] = gt
                     k+=1
 
                 #store the position and the alt
                 for seq, gen in recCalls.iteritems():
-                    if '0' not in gen:  #if is 0/1, ignore - uncertain call
+                    if gen[0] != '0' and gen[2] != '0':  #if is 0/1 or 1/0, ignore - uncertain call
                         alt = str(ALT[int(gen[0])-1])   #get the index of the alternate
                         ref = REF
                         pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
@@ -264,7 +264,7 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
     compress_seq = {'reference':refSeqStr,
                     'sequences': sequences,
                     'insertions': insertions,
-                    'positions': positions }
+                    'positions': positions}
 
     return compress_seq
 
@@ -273,7 +273,7 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
     Reads in a vcf file where TRANSLATIONS have been stored and associated
     reference sequence fasta (to which the VCF file is mapped)
     This is the file output by "write_VCF_translation" below
-    
+
     Returns a nested dict in the same format as is *input* in "write_VCF_translation" below,
     with a nested dict for each gene, which contains 'sequences', 'positions', and 'reference'
     """
@@ -298,7 +298,7 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
                 ALT = dat[altLoc].split(',')
                 GEN = dat[0] #'CHROM' or the gene name here
                 calls = np.array(dat[sampLoc:])
-                
+
                 #get samples that differ from Ref at this site
                 recCalls = {}
                 k=0
@@ -314,7 +314,7 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
                     pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
                                     #will be from 0 because it's python!
                     gen = GEN       #from CHROM, gene name
-                    
+
                     if gen not in prots.keys():
                         prots[gen] = {}
                         prots[gen]['sequences'] = {}
@@ -322,11 +322,11 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
                         prots[gen]['reference'] = ''
                     if seq not in prots[gen]['sequences'].keys():
                         prots[gen]['sequences'][seq] = {}
-                        
+
                     #will never be insertion or deletion! because translation.
                     prots[gen]['sequences'][seq][pos] = alt
                     prots[gen]['positions'].append(pos)
-                
+
             elif line[0] == '#' and line[1] == 'C':
                 #header line, get all the information
                 line = line.strip()
@@ -338,7 +338,7 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
                 sampLoc = np.where(headNP=='FORMAT')[0][0]+1 #first sample should be 1 after FORMAT column
                 samps = header[sampLoc:]
                 nsamp = len(samps)
-     
+
 
     for refSeq in SeqIO.parse(translation_ref_file(path), format='fasta'):
         prots[refSeq.name]['reference'] = str(refSeq.seq)
@@ -347,7 +347,60 @@ def read_in_translate_vcf(vcf_file, ref_file, compressed=True):
         prots[refSeq.name]['positions'] = np.sort(posN)
 
     return prots
-    
+
+
+def read_in_DRMs(drm_file):
+    """
+    Reads in a tab-delim file giving information on Drug Resistance Mutations.
+    Format at the moment must include columns titled:
+    GENOMIC_POSITION (bp of the mutation)
+    ALT_BASE    (the alt-base conferring resistance)
+    SUBSTITUTION    (the aminoacid-codonloc-aminoacid change)
+    DRUG    (the drug of resistance)
+    GENE    (the gene the mutation is in)
+
+    Other columns can be present but will be ignored
+
+    Returns a nested dict containing:
+        drmPositions: an array of all the positions of DRMs
+
+        DRMs: another nested dict with information about the mutations
+            'position' is the key, and maps to a nested dict that contains:
+            base, drug, AA, gene
+            base and AA are arrays as one bp position can have multiple 'alt' bases
+
+    """
+    import pandas as pd
+    import numpy as np
+
+    DRMs = {}
+    drmPositions = []
+
+    df = pd.read_csv(drm_file, sep='\t')
+    for mi, m in df.iterrows():
+        pos = m.GENOMIC_POSITION-1 #put in python numbering
+        drmPositions.append(pos)
+
+        if pos in DRMs:
+            DRMs[pos]['base'].append(m.ALT_BASE)
+            DRMs[pos]['AA'].append(m.SUBSTITUTION)
+        else:
+            DRMs[pos] = {}
+            DRMs[pos]['base'] = [m.ALT_BASE]
+            DRMs[pos]['drug'] = m.DRUG
+            DRMs[pos]['AA'] = [m.SUBSTITUTION]
+            DRMs[pos]['gene'] = m.GENE
+
+    drmPositions = np.array(drmPositions)
+    drmPositions = np.unique(drmPositions)
+    drmPositions = np.sort(drmPositions)
+
+    DRM_info = {'DRMs': DRMs,
+            'drmPositions': drmPositions}
+
+    return DRM_info
+
+
 #####################################################
 # date parsing and conversions
 #####################################################
@@ -656,14 +709,14 @@ def safe_translate(sequence, report_exceptions=False):
 def get_genes_and_alignments(path, tree=True):
     import os.path
     from filenames import translation_ref_file, translation_vcf_file
-    
+
     genes = []
-    
+
     if os.path.isfile(translation_ref_file(path)): #vcf file, use different method!
         from Bio import SeqIO
         for seq in SeqIO.parse(translation_ref_file(path), format='fasta'):
             genes.append((seq.name, translation_vcf_file(path)))
-            
+
     else:
         import glob
         if tree:
@@ -676,7 +729,7 @@ def get_genes_and_alignments(path, tree=True):
         for aln_fname in aln_files:
             gene = aln_fname.rstrip(mask.split("*")[-1]).lstrip(mask.split('*')[0])
             genes.append((gene, aln_fname))
-            
+
     return genes
 
 
@@ -716,7 +769,7 @@ def load_features(reference, feature_names=None):
                     fname = feat.qualifiers["locus_tag"][0]
                 if feature_names is None or fname in feature_names:
                     features[fname] = feat
-        
+
         if feature_names is not None:
             for fe in feature_names:
                 if fe not in features:

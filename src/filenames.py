@@ -18,6 +18,9 @@ def orig_meta_file_name(path):
 # process files
 ######################################
 
+def results_dir(path):
+    return path+'/results/'
+
 #EBH 29 Nov 17
 def recode_gzvcf_name(path):
     return path+'/results/'+'seqs.vcf.gz'

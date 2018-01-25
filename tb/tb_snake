@@ -3,27 +3,29 @@ rule prepare:
 		"tb/data/meta.tsv",
 		"tb/data/dropped_strains.txt",
 		gzvcf = "tb/data/tb.vcf.gz",
-		ref = "tb/data/MTB_ancestor_reference.fasta"
+		ref = "tb/data/MTB_ancestor_reference.fasta",
+		strip = "tb/data/Locus_to_exclude_Mtb.txt"
 	output:
 		"tb/results/seqs.vcf.gz",
 		"tb/results/meta.tsv",
 		"tb/results/ref.fasta"
 	shell:
-		"python src/prepare_vcf.py --gzvcf {input.gzvcf} --ref {input.ref} --path tb"
+		"python src/prepare_vcf.py --strip_loci {input.strip} --gzvcf {input.gzvcf} --ref {input.ref} --path tb"
 
 
 rule tree:
 	input:
 		"tb/results/seqs.vcf.gz",
 		"tb/results/meta.tsv",
-		"tb/results/ref.fasta"
+		"tb/results/ref.fasta",
+		drm = "tb/data/DRMs.txt"
 	output:
 		"tb/results/tree.nwk",
 		"tb/results/tree.tsv",
 		"tb/results/seq_gtr.txt",
 		"tb/results/tree_nuc_aln.vcf"
 	shell:
-		"python src/build_tree.py --path tb --timetree --iqtree --iqmodel TVM+R2 --vcf --nthreads 2"
+		"python src/build_tree.py --path tb --drm {input.drm} --timetree --iqtree --iqmodel TVM+R2 --vcf --nthreads 2"
 
 
 rule translate:
@@ -65,5 +67,4 @@ rule export:
 		#"tb/auspice/tb_entropy.json"
 	shell:
 		"python src/export_to_auspice.py --vcf --path tb --prefix tb --reference {input.gff}"
-		
-		
+
