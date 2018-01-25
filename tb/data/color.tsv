@@ -7,6 +7,7 @@ country	malaysia	#4292c6
 country	thailand	#2171b5
 country	singapore	#08519c
 country	myanmar	#08306b
+country	vietnam	#f7fbff
 
 region	africa	#41ab5d
 country	gambia	#e5f5e0
@@ -19,6 +20,8 @@ country	liberia	#006d2c
 country	somalia	#00441b
 country	ghana	#d9f0a3
 country	ethiopia	#ce1256
+country	uganda	#f7fcf5
+country	sierra_leone	#99d8c9
 
 region	west_asia	#f16913
 country	iran	#fdae6b
@@ -36,12 +39,14 @@ country	guatemala	#6a51a3
 country	el_salvador	#807dba
 country	puerto_rico	#9e9ac8
 country	canada	#bcbddc
+country	usa	#dadaeb
 
 region	europe	#cb181d
 country	portugal	#cb181d
 country	germany	#a50f15
 country	serbia	#67000d
 country	netherlands	#c994c7
+country	united_kingdom	#fc9272
 
 region south_america	#fb6a4a
 country	suriname	#ef3b2c
@@ -67,3 +72,21 @@ lineage	L2	#ff7f00
 lineage	L5	#ffff33
 lineage	L6	#a65628
 lineage	L7	#f781bf
+
+DRM	S315T:INH	#cb181d
+DRM	S315T:INH,L79S:SM	#fb6a4a
+DRM	S315T:INH,K43R:SM,M306V:EMB	#54278f
+DRM	A90V:FQ,S315T:INH,K43R:SM,M306V:EMB	#807dba
+DRM	S315T:INH,K43R:SM,S450L:RIF,M306V:EMB	#bcbddc
+DRM	G69D:SM,S315T:INH,S450L:RIF,G406A:EMB	#a50f15
+DRM	D435Y:RIF,S315T:INH,M306I:EMB,D435V:RIF	#fcbba1
+DRM	K43R:SM	#2171b5
+DRM	K43R:SM,S315N:INH	#6baed6
+DRM	M306V:EMB,D435Y:RIF,K43R:SM,C-15T:INH;ETH,A1401G:AK;CAP;KAN,S94A:INH;ETH,S450L:RIF	#c6dbef 
+DRM	A138V:SM	#c51b7d
+DRM	A138V:SM,C-15T:INH;ETH	#de77ae
+DRM	A514C:SM	#b8e186
+DRM	I337V:ETH	#4d9221
+DRM	N345K:ETH	#b35806
+DRM	T1082A:EMB	#fdb863
+DRM	S94A:INH;ETH,L79S:SM	#006d2c

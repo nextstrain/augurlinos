@@ -69,7 +69,7 @@ def attach_tree_meta_data(T, node_meta):
     T.root.attr['div']=0
     for n in T.get_nonterminals(order='preorder'):
         for c in n:
-            bl =  n.mutation_length if hasattr(n, "mutation_length") else "branch_length"
+            bl =  c.mutation_length if hasattr(c, "mutation_length") else c.branch_length
             c.attr["div"] = n.attr["div"] + bl
 
 
@@ -161,16 +161,17 @@ def export_metadata_json(T, path, prefix, reference, isvcf=False, indent=1):
     mjson["maintainer"] = "Emma Hodcroft"
     mjson["geo"] = {}
     lat_long_defs = load_lat_long_defs()
-    for geo_trait in ['region', "country"]:
+    for geo_trait in ['region', "country", 'division']:
         mjson["geo"][geo_trait] = {}
         for n in T.find_clades():
-            place = n.attr[geo_trait]
-            if  (place not in mjson["geo"][geo_trait]
-                 and place in lat_long_defs):
-                mjson["geo"][geo_trait][place] = lat_long_defs[place]
+            if geo_trait in n.attr:
+                place = n.attr[geo_trait]
+                if  (place not in mjson["geo"][geo_trait]
+                     and place in lat_long_defs):
+                    mjson["geo"][geo_trait][place] = lat_long_defs[place]
 
     mjson["commit"] = "unknown"
-    mjson["filters"] = ["country", "region"]
+    mjson["filters"] = ["country", "region", "division"]
 
     genes = load_features(reference)
     anno = {}
@@ -179,7 +180,7 @@ def export_metadata_json(T, path, prefix, reference, isvcf=False, indent=1):
             anno[feat] = {"start":int(genes[feat].location.start),
                           "end":int(genes[feat].location.end),
                           "strand":genes[feat].location.strand}
-                          
+
     if isvcf:
         #if vcf, there is no 'gene' called 'nuc' that will be read in
         #above, so manually include it here.
@@ -189,7 +190,7 @@ def export_metadata_json(T, path, prefix, reference, isvcf=False, indent=1):
         anno['nuc'] =   {"start":1,
                          "end":len(refSeq.seq),
                          "strand":1 }
-                         
+
     mjson["annotations"] = anno
     write_json(mjson, meta_json(path,prefix), indent=indent)
 
@@ -233,7 +234,7 @@ if __name__ == '__main__':
                         help="reference sequence needed for entropy feature export")
     parser.add_argument('--vcf', action='store_true', default=False,
                         help="sequence is in VCF format")
-                        
+
     args = parser.parse_args()
     path = args.path
 
@@ -249,7 +250,7 @@ if __name__ == '__main__':
     if not args.vcf:
         #Aupice will soon not need these, and getting them from VCF
         #files is not efficient (processing or memory), so simply
-        #do not make if VCF file format. 
+        #do not make if VCF file format.
         export_sequence_json(T, path, args.prefix, indent=1)
         export_diversity(path, args.prefix, args.reference)
 

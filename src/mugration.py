@@ -48,7 +48,7 @@ def mugration_inference(tree=None, seq_meta=None, field='country', confidence=Tr
             aln = MultipleSeqAlignment(pseudo_seqs)
 
             from treetime import TreeAnc
-            tt = TreeAnc(tree=tree, aln=aln, gtr=myGeoGTR)
+            tt = TreeAnc(tree=tree, aln=aln, gtr=myGeoGTR, convert_upper=False)
             tt.use_mutation_length=False
             tt.infer_ancestral_sequences(infer_gtr=infer_gtr, store_compressed=False, pc=5.0,
                                          marginal=True, normalized_rate=False)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     with open(mugration_model(path, args.field),'w') as ofile:
         ofile.write('Map from character to field name\n')
         for k,v in alphabet.items():
-            ofile.write(k+':\t'+v+'\n')
+            ofile.write(k+':\t'+str(v)+'\n')
         ofile.write('\n\n')
 
         ofile.write(str(tt.gtr))
