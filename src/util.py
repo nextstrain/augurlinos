@@ -26,7 +26,8 @@ def write_fasta(seqs, fname, ungap=False):
 def read_sequence_meta_data(path):
     from filenames import meta_file_name
     import pandas as pd
-    df = pd.read_csv(meta_file_name(path), sep='\t')
+    df = pd.read_csv(meta_file_name(path), sep='\t').fillna('')
+    #import ipdb; ipdb.set_trace()
     return {m[0]:m.to_dict() for mi, m in df.iterrows()}
 
 
@@ -135,7 +136,6 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
     EBH 4 Dec 2017
     """
     #vcf is inefficient for the data we want. House code is *much* faster.
-    #the downside is that this assumes samples start at column 9 (python numbering)!!
     import gzip
     from Bio import SeqIO
     import numpy as np
@@ -182,7 +182,8 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
 
                 #store the position and the alt
                 for seq, gen in recCalls.iteritems():
-                    if gen[0] != '0' and gen[2] != '0':  #if is 0/1 or 1/0, ignore - uncertain call
+                    if gen[0] != '0' and gen[2] != '0':
+                        #if is 0/1 or 1/0, ignore - uncertain call
                         alt = str(ALT[int(gen[0])-1])   #get the index of the alternate
                         ref = REF
                         pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
@@ -219,7 +220,10 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                                 #if not, there may be mutations
                                 else:
                                     if ref[i] != alt[i]:
-                                        sequences[seq][pos+i] = alt[i]
+                                        if alt[i] == '.':
+                                            sequences[seq][pos+i] = '-'
+                                        else:
+                                            sequences[seq][pos+i] = alt[i]
                                         #if pos+i not in positions:
                                         positions.append(pos+i)
 
@@ -236,6 +240,7 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                             sequences[seq][pos] = alt
                             #if pos not in positions:
                             positions.append(pos)
+
 
             elif line[0] == '#' and line[1] == 'C':
                 #header line, get all the information
@@ -570,7 +575,6 @@ def write_VCF_style_alignment(tree_dict, file_name):
             while positions[i+1] == pi+1:
                 i+=1
                 pi = positions[i]
-                refb = refb+ref[pi]
                 #again, new method
                 pattern = []
                 for k,v in sequences.iteritems():
@@ -580,7 +584,11 @@ def write_VCF_style_alignment(tree_dict, file_name):
                         pattern.append(ref[pi])
                 pattern = np.array(pattern)
                 #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
-                sites.append(pattern)
+                if any(pattern == '-'): #if part of deletion, append
+                    sites.append(pattern)
+                    refb = refb+ref[pi]
+                else: #this is another mutation next to the deletion!
+                    i-=1    #don't append, leave for next loop!
 
             #group them into 'calls'
             sites = np.asarray(sites)

@@ -91,6 +91,10 @@ def translation_ref_file(path):
     return path+'/results/'+'translation_reference.fasta'
 
 
+#EBH 13 Feb 18
+def drm_color_maps(path):
+    return path+'/results/'+'drm_color.tsv'
+
 #######################################
 # Auspice json file name
 #######################################
