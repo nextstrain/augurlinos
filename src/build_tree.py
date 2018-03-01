@@ -39,7 +39,7 @@ def build_fasttree(aln_file, out_file, clean_up=True):
 
 
 def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
-    #return Phylo.read(out_file.replace(".nwk",".iqtree.nwk"), 'newick')
+    #return Phylo.read(out_file.replace(".nwk",".iqtree.nwk"), 'newick') #uncomment for debug skip straight to TreeTime
     if iqmodel:
         call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, "-m", iqmodel[0],
             ">", "iqtree.log"]
@@ -84,7 +84,6 @@ def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
     else:
         marginal = confidence
 
-    #tt.run(infer_gtr=infer_gtr, root="G20039", Tc=Tc, time_marginal=marginal, fixed_clock_rate=0.00000364,
     tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal,
            resolve_polytomies=resolve_polytomies, max_iter=max_iter, **kwarks)
 

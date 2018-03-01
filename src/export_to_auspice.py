@@ -46,6 +46,8 @@ def attach_tree_meta_data(T, node_meta):
     def parse_mutations(muts):
         allMut = muts.split(',') if type(muts) in [str, unicode] else ""
         realMut=[]
+        #This exclude gaps from displaying in Auspice. They're ignored, in
+        #treebuilding anyway, and clutter up display/prevent from seeing real ones
         for m in allMut:
             if '-' not in m:
                 realMut.append(m)

@@ -27,7 +27,7 @@ def read_sequence_meta_data(path):
     from filenames import meta_file_name
     import pandas as pd
     df = pd.read_csv(meta_file_name(path), sep='\t').fillna('')
-    #import ipdb; ipdb.set_trace()
+    #reads blanks in TSV as blanks, which plays nice with TreeTime
     return {m[0]:m.to_dict() for mi, m in df.iterrows()}
 
 
@@ -584,6 +584,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
                         pattern.append(ref[pi])
                 pattern = np.array(pattern)
                 #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
+                #This stops 'greedy' behaviour from putting mutations that happen to be
+                #next to deletions on the same line/position as deletions.
                 if any(pattern == '-'): #if part of deletion, append
                     sites.append(pattern)
                     refb = refb+ref[pi]
