@@ -2,7 +2,8 @@ import numpy as np
 from util import (read_sequence_meta_data, read_tree_meta_data,
                   get_genes_and_alignments, generic_argparse)
 from filenames import (tree_newick, tree_json, tree_sequence_alignment,
-                       sequence_json, diversity_json, color_maps, meta_json)
+                       sequence_json, diversity_json, color_maps, meta_json,
+                       drm_color_maps)
 from util import write_json, load_features, diversity_statistics, load_lat_long_defs
 from Bio import Phylo
 
@@ -43,7 +44,17 @@ def tree_to_json(node, extra_attr = []):
 
 def attach_tree_meta_data(T, node_meta):
     def parse_mutations(muts):
-        return muts.split(',') if type(muts) in [str, unicode] else ""
+        allMut = muts.split(',') if type(muts) in [str, unicode] else ""
+        realMut=[]
+        #This exclude gaps from displaying in Auspice. They're ignored, in
+        #treebuilding anyway, and clutter up display/prevent from seeing real ones
+        for m in allMut:
+            if '-' not in m:
+                realMut.append(m)
+        if len(realMut)==0:
+            realMut = [""]
+        return realMut
+        #return muts.split(',') if type(muts) in [str, unicode] else ""
 
     for n in T.find_clades(order='preorder'):
         n.attr={}
@@ -129,6 +140,17 @@ def export_metadata_json(T, path, prefix, reference, isvcf=False, indent=1):
             except:
                 continue
             cmaps[trait].append((name, color))
+
+    #if drug-resistance colours have been auto-generated, get these too
+    import os.path
+    if os.path.isfile(drm_color_maps(path)):
+        with open(drm_color_maps(path), 'r') as cfile:
+            for line in cfile:
+                try:
+                    trait, name, color = line.strip().split('\t')
+                except:
+                    continue
+                cmaps[trait].append((name, color))
 
     mjson["color_options"] = {
       "gt": {

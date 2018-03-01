@@ -39,6 +39,7 @@ def build_fasttree(aln_file, out_file, clean_up=True):
 
 
 def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
+    #return Phylo.read(out_file.replace(".nwk",".iqtree.nwk"), 'newick') #uncomment for debug skip straight to TreeTime
     if iqmodel:
         call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, "-m", iqmodel[0],
             ">", "iqtree.log"]
@@ -162,12 +163,17 @@ def write_out_variable_fasta(compress_seq, path, drmfile=None):
             except KeyError, e:
                 pattern.append(ref[key])
         #pattern = [ sequences[k][key] if key in sequences[k].keys() else ref[key] for k,v in sequences.iteritems() ]
+        origPattern = list(pattern)
+        if '-' in pattern:
+            pattern = [value for value in origPattern if value != '-']
+            #remove gaps to see if otherwise non-variable
+            #print pattern
         un = np.unique(pattern, return_counts=True)
-        if len(un[0])==2 and min(un[1])==1: #'singleton' mutation - only happens in 1 seq
+        if len(un[0])==1 or (len(un[0])==2 and min(un[1])==1): #'singleton' mutation - only happens in 1 seq
         #if len(un[0])==1: #don't write out identical bases
             False #don't append! (python makes me put something here)
         else:
-            sites.append(pattern)
+            sites.append(origPattern) #append original with gaps (if present)
 
     #rotate into an alignment and turn into list of SeqRecord to output easily
     sites = np.asarray(sites)
@@ -209,6 +215,10 @@ if __name__ == '__main__':
     parser.add_argument('--drm', type=str,
                         help="file of DRMs to exclude from inital tree-building")
 
+    #EBH 14 Feb 2018
+    parser.add_argument('--roottype', type=str, default="residual",
+                        help="type of rerooting. options are 'rsq', 'residual' (default), and 'oldest'")
+
     args = parser.parse_args()
     path = args.path
 
@@ -242,9 +252,9 @@ if __name__ == '__main__':
 
     start = time.time()
     if args.raxml:
-        T = build_raxml(treebuild_align, tree_newick(path), path)
+        T = build_raxml(treebuild_align, tree_newick(path), path, args.nthreads)
     elif args.iqtree:
-        T = build_iqtree(treebuild_align, tree_newick(path), args.iqmodel)
+        T = build_iqtree(treebuild_align, tree_newick(path), args.iqmodel, args.nthreads)
     else: #use fasttree - if add more options, put another check here
         T = build_fasttree(treebuild_align, tree_newick(path))
     end = time.time()
@@ -257,10 +267,10 @@ if __name__ == '__main__':
     if args.timetree:
         if args.vcf:
             tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence,
-                          seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
+                          seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc, use_marginal=True)
         else:
             tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
-                          seq_meta=meta, reroot=None if args.keeproot else 'best', Tc=args.Tc)
+                          seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc)
 
         T = tt.tree
         fields.extend(['mutations', 'mutation_length', 'num_date', 'clock_length'])
@@ -282,7 +292,12 @@ if __name__ == '__main__':
         n.clade = clade_index
         clade_index+=1
 
-    Phylo.write(T, tree_newick(path), 'newick')
+    if args.vcf:
+        Phylo.write(T, tree_newick(path), 'newick', format_branch_length='%1.8f')
+        #This gives more digits to branch length which for small numbers
+        #means it's more than just 0 and 0.00001 in the Newick!
+    else:
+        Phylo.write(T, tree_newick(path), 'newick')
     meta_dic = collect_tree_meta_data(T, fields, args.vcf)
     write_tree_meta_data(path, meta_dic)
 
