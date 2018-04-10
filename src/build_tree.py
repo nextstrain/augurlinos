@@ -69,6 +69,12 @@ def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
              confidence=False, resolve_polytomies=True, max_iter=2,
              infer_gtr=True, Tc=0.01, reroot='best', use_marginal=False, **kwarks):
     from treetime import TreeTime
+
+
+
+
+
+
     dates = {}
     for name, data in seq_meta.items():
         num_date = parse_date(data["date"], date_fmt)
@@ -84,8 +90,19 @@ def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
     else:
         marginal = confidence
 
+    #Length of VCF files means GTR model with gaps causes overestimation of mutation TO gaps
+    #so gaps appear in internal nodes when no gaps at tips! To prevent....
+    pi = None
+    if ref != None: #if VCF, fix pi
+        pi = np.array([0.1618, 0.3188, 0.3176, 0.1618, 0.04]) #from real runs (Walker 2018)
+
+
     tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal,
-           resolve_polytomies=resolve_polytomies, max_iter=max_iter, **kwarks)
+           resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
+
+
+
+
 
     for n in T.find_clades():
         n.num_date = n.numdate # treetime convention is different from augur...
@@ -126,6 +143,10 @@ def export_sequence_VCF(tt, path):
 
 
 def write_out_variable_fasta(compress_seq, path, drmfile=None):
+    #Now also writes out a file tracking the actual position of the variable site written out.
+    #So if viewing the variable Fasta and wondering what real position column 5 is,
+    #one can look at row 5 of this file, and it will give the real bp position.
+
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
     from Bio.Seq import Seq
@@ -155,6 +176,7 @@ def write_out_variable_fasta(compress_seq, path, drmfile=None):
     #get the variables sites, either ALT or REF as already determined above
     #use faster method
     sites = []
+    pos = []
     for key in positions:
         pattern = []
         for k,v in sequences.iteritems():
@@ -174,12 +196,16 @@ def write_out_variable_fasta(compress_seq, path, drmfile=None):
             False #don't append! (python makes me put something here)
         else:
             sites.append(origPattern) #append original with gaps (if present)
+            pos.append(str(key))
 
     #rotate into an alignment and turn into list of SeqRecord to output easily
     sites = np.asarray(sites)
     align = np.rot90(sites)
     seqNamesCorr = list(reversed(seqNames))
     toFasta = [ SeqRecord(id=seqNamesCorr[i], seq=Seq("".join(align[i])), description='') for i in xrange(len(sequences.keys()))]
+
+    with open(var_site_alignment(path)+".positions.txt", 'w') as the_file:
+        the_file.write("\n".join(pos))
 
     #now output this as fasta to read into raxml or iqtree
     SeqIO.write(toFasta, var_site_alignment(path), 'fasta')
@@ -216,8 +242,14 @@ if __name__ == '__main__':
                         help="file of DRMs to exclude from inital tree-building")
 
     #EBH 14 Feb 2018
-    parser.add_argument('--roottype', type=str, default="residual",
+    parser.add_argument('--roottype', nargs="+",#type=str, default="residual",
                         help="type of rerooting. options are 'rsq', 'residual' (default), and 'oldest'")
+
+    #EBH 16 Mar 2018
+    parser.add_argument('--varAmbigs', action='store_true', default=False,
+                        help="preserve ambiguous bases at variable sites in recorded mutations")
+
+
 
     args = parser.parse_args()
     path = args.path
@@ -235,7 +267,7 @@ if __name__ == '__main__':
         end = time.time()
         print "Reading in VCF took {}".format(str(end-start))
 
-        #write out the reduced fasta (only variable sites) to be read in
+        #write out the reduced fasta (only variable sites) to be used by
         #by iqtree/raxml/fasttree  ("var_site_alignment(path)")
         start = time.time()
         write_out_variable_fasta(compress_seq, path, args.drm)
@@ -263,11 +295,15 @@ if __name__ == '__main__':
     meta = read_sequence_meta_data(path)
     fields = ['branchlength', 'clade']
 
+    #Anything but a list of sequences to root by, shouldn't go as a "list".
+    if len(args.roottype) == 1:
+        args.roottype = args.roottype[0]
+
     start = time.time()
     if args.timetree:
         if args.vcf:
             tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence,
-                          seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc, use_marginal=True)
+                          seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc)#, use_marginal=True)
         else:
             tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
                           seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc)
@@ -298,6 +334,9 @@ if __name__ == '__main__':
         #means it's more than just 0 and 0.00001 in the Newick!
     else:
         Phylo.write(T, tree_newick(path), 'newick')
+
+    if args.varAmbigs: #if requested, put ambigs back on tips
+        tt.recover_var_ambigs()
     meta_dic = collect_tree_meta_data(T, fields, args.vcf)
     write_tree_meta_data(path, meta_dic)
 
@@ -308,7 +347,7 @@ if __name__ == '__main__':
     #do NOT print out all full sequences if VCF - will be huge!
     if args.timetree or args.ancestral:
         if args.vcf:
-            export_sequence_VCF(tt, path)
+            export_sequence_VCF(tt, path, args.varAmbigs)
         else:
             export_sequence_fasta(T, path)
     end = time.time()
