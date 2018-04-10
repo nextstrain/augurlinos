@@ -239,7 +239,7 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                                 else:
                                     if ref[i] != alt[i]:
                                         if alt[i] == '.':
-                                            sequences[seq][pos+i] = '-'
+                                            sequences[seq][pos+i] = 'N'
                                         else:
                                             sequences[seq][pos+i] = alt[i]
                                         #if pos+i not in positions:

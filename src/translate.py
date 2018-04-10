@@ -37,7 +37,7 @@ def translate(aln_fname, reference, name_func, feature_names=None):
 
 def translate_vcf_feature(sequences, ref, feature):
 
-    def str_reverse_comp(str_seg):
+    def str_reverse_comp(str_seq):
         #gets reverse-compliment of a string and returns it as a string
         seq_str = Seq(str_seq)
         return str(seq_str.reverse_complement())

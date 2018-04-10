@@ -137,8 +137,8 @@ def export_sequence_fasta(T, path):
         seqs.append(SeqRecord(Seq(''.join(node.sequence)), description='', name=node.name, id=node.name))
     AlignIO.write(MultipleSeqAlignment(seqs), fname, 'fasta')
 
-def export_sequence_VCF(tt, path):
-    tree_dict = tt.get_tree_dict()
+def export_sequence_VCF(tt, path, var_ambigs=False):
+    tree_dict = tt.get_tree_dict(var_ambigs)
     write_VCF_style_alignment(tree_dict, tree_vcf_alignment(path,'nuc'))
 
 
