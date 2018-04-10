@@ -480,12 +480,12 @@ def read_in_DRMs(drm_file):
 #####################################################
 # date parsing and conversions
 #####################################################
-def parse_date(datein, fmt):
+def parse_date(datein, fmt, max_min_year=None):
     from datetime import datetime
     import numpy as np
     try:
         if 'XX' in datein:
-            min_date, max_date = ambiguous_date_to_date_range(datein, fmt)
+            min_date, max_date = ambiguous_date_to_date_range(datein, fmt, max_min_year)
             n_date = np.array((numerical_date(min_date), numerical_date(max_date)))
         else:
             tmp = datetime.strptime(datein, fmt).date()
