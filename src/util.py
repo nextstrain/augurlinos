@@ -503,7 +503,9 @@ def numerical_date(date):
     return date.year + days_in_year/365.25
 
 
-def ambiguous_date_to_date_range(mydate, fmt):
+def ambiguous_date_to_date_range(mydate, fmt, max_min_year=None):
+    #Can now be passed a 1- or 2-element list containing the minimum or minimum and maximum
+    #dates to be used in the range.
     from datetime import datetime
     sep = fmt.split('%')[1][-1]
     min_date, max_date = {}, {}
@@ -513,7 +515,14 @@ def ambiguous_date_to_date_range(mydate, fmt):
         f = 'year' if 'y' in field.lower() else ('day' if 'd' in field.lower() else 'month')
         if 'XX' in val:
             if f=='year':
-                return None, None
+                if max_min_year:
+                    min_date[f]=max_min_year[0]
+                    if len(max_min_year)>1:
+                        max_date[f]=max_min_year[1]
+                    elif len(max_min_year)==1:
+                        max_date[f]=4000 #will be replaced by 'today' below.
+                else:
+                    return None, None
             elif f=='month':
                 min_date[f]=1
                 max_date[f]=12

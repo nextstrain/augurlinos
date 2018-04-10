@@ -66,18 +66,18 @@ def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
 
 
 def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
-             confidence=False, resolve_polytomies=True, max_iter=2,
+             confidence=False, resolve_polytomies=True, max_iter=2, dateLimits=None,
              infer_gtr=True, Tc=0.01, reroot='best', use_marginal=False, **kwarks):
     from treetime import TreeTime
 
-
-
-
-
+    dL_int = None
+    if dateLimits:
+        dL_int = [int(x) for x in dateLimits]
+        dL_int.sort()
 
     dates = {}
     for name, data in seq_meta.items():
-        num_date = parse_date(data["date"], date_fmt)
+        num_date = parse_date(data["date"], date_fmt, dL_int)
         if num_date is not None:
             dates[name] = num_date
 
@@ -248,8 +248,8 @@ if __name__ == '__main__':
     #EBH 16 Mar 2018
     parser.add_argument('--varAmbigs', action='store_true', default=False,
                         help="preserve ambiguous bases at variable sites in recorded mutations")
-
-
+    parser.add_argument('--dateLimit', nargs='+',
+                        help="specify min and max year for samples without dates. Order doesn't matter. If only one value, taken as min, and max set to current year.")
 
     args = parser.parse_args()
     path = args.path
@@ -302,10 +302,10 @@ if __name__ == '__main__':
     start = time.time()
     if args.timetree:
         if args.vcf:
-            tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence,
+            tt = timetree(tree=T, aln=sequences, ref=ref, confidence=args.confidence, dateLimits=args.dateLimit,
                           seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc)#, use_marginal=True)
         else:
-            tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence,
+            tt = timetree(tree=T, aln=ref_alignment(path), confidence=args.confidence, dateLimits=args.dateLimit,
                           seq_meta=meta, reroot=None if args.keeproot else args.roottype, Tc=args.Tc)
 
         T = tt.tree
