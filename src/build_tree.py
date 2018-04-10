@@ -191,7 +191,7 @@ def write_out_variable_fasta(compress_seq, path, drmfile=None):
             #remove gaps to see if otherwise non-variable
             #print pattern
         un = np.unique(pattern, return_counts=True)
-        if len(un[0])==1 or (len(un[0])==2 and min(un[1])==1): #'singleton' mutation - only happens in 1 seq
+        if len(un[0])==0 or len(un[0])==1 or (len(un[0])==2 and min(un[1])==1): #'singleton' mutation - only happens in 1 seq
         #if len(un[0])==1: #don't write out identical bases
             False #don't append! (python makes me put something here)
         else:
