@@ -4,6 +4,19 @@ scratch/
 .snakemake
 mafft_stderr
 
+# Results #
+**/results
+**/auspice
+
+# Input #
+tb/data/tb.vcf.gz
+tb/data/Mtb_H37Rv_NCBI_Annot.gff
+zika/data/zika.fasta
+tb/data/MTB_ancestor_reference.fasta
+out.log
+tb_*
+tb2
+tb100
 
 # For Python #
 ##############

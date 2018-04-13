@@ -135,6 +135,25 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
 
     EBH 4 Dec 2017
     """
+    #In future, if TreeTime handles 2-3 base ambig codes, this will allow that.
+    def getAmbigCode(bp1, bp2, bp3=""):
+        bps = [bp1,bp2,bp3]
+        bps.sort()
+        key = "".join(bps)
+
+        return {
+            'CT': 'Y',
+            'AG': 'R',
+            'AT': 'W',
+            'CG': 'S',
+            'GT': 'K',
+            'AC': 'M',
+            'AGT': 'D',
+            'ACG': 'V',
+            'ACT': 'H',
+            'CGT': 'B'
+        }[key]
+
     #vcf is inefficient for the data we want. House code is *much* faster.
     import gzip
     from Bio import SeqIO
@@ -167,7 +186,6 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                 ALT = dat[altLoc].split(',')
                 calls = np.array(dat[sampLoc:])
 
-
                 #get samples that differ from Ref at this site
                 recCalls = {}
                 k=0
@@ -176,19 +194,19 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                         gt = sa.split(':')[0]
                     else: #if 'pseudo' VCF file (nextstrain output)
                         gt = sa
-                    if gt != '.' and gt[0] != '.' and gt[0] != '0':
+                    #if gt != '.' and gt[0] != '.' and gt[0] != '0':
+                    if '/' in gt and gt != '0/0':  #ignore if ref: '.' or '0/0', depending on VCF
                         recCalls[samps[k]] = gt
                     k+=1
 
                 #store the position and the alt
                 for seq, gen in recCalls.iteritems():
-                    if gen[0] != '0' and gen[2] != '0':
+                    ref = REF
+                    pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
+                                    #will be from 0 because it's python!
+                    if gen[0] != '0' and gen[2] != '0' and gen[0] != '.' and gen[2] != '.':
                         #if is 0/1 or 1/0, ignore - uncertain call
                         alt = str(ALT[int(gen[0])-1])   #get the index of the alternate
-                        ref = REF
-                        pos = POS-1     #VCF numbering starts from 1, but Reference seq numbering
-                                        #will be from 0 because it's python!
-
                         if seq not in sequences.keys():
                             sequences[seq] = {}
 
@@ -221,7 +239,7 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                                 else:
                                     if ref[i] != alt[i]:
                                         if alt[i] == '.':
-                                            sequences[seq][pos+i] = '-'
+                                            sequences[seq][pos+i] = 'N'
                                         else:
                                             sequences[seq][pos+i] = alt[i]
                                         #if pos+i not in positions:
@@ -241,6 +259,57 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                             #if pos not in positions:
                             positions.append(pos)
 
+                    #if is heterozygote call (0/1) or no call (./.)
+                    else:
+                        #if deletion
+                        if len(ref) > 1:
+                            #if a hetero call on a deletion, deleted part is Ns
+                            #If no-call on deletion - I guess put N's as well!
+                            if gen[0] == '0' or gen[0] == '.':
+                                if gen[0] == '0':
+                                    alt = str(ALT[int(gen[2])-1])
+                                else: #if no-call, there is no alt, so just put Ns after 1st ref base?
+                                    alt = ref[0]
+                                for i in xrange(len(ref)):
+                                    #if ref is longer than alt, these are deletion positions
+                                    if i+1 > len(alt):
+                                        sequences[seq][pos+i] = 'N'
+                                        #if pos+i not in positions:
+                                        positions.append(pos+i)
+                                    #if not, there may be mutations
+                                    else:
+                                        if ref[i] != alt[i]:
+                                            if alt[i] == '.':
+                                                sequences[seq][pos+i] = 'N'
+                                            else:
+                                                sequences[seq][pos+i] = alt[i]
+                                            #if pos+i not in positions:
+                                            positions.append(pos+i)
+
+                        #if het, see if proposed alt is 1bp mutation
+                        elif gen[0] == '0':
+                            alt = str(ALT[int(gen[2])-1])
+                            if len(alt)==1:
+                                #alt = getAmbigCode(ref,alt) #if want to allow ambig
+                                alt = 'N' #if you want to disregard ambig
+                                if seq not in sequences.keys():
+                                    sequences[seq] = {}
+                                sequences[seq][pos] = alt
+                                positions.append(pos)
+                            #else: #else an insertion, so ignore.
+                                #print "insertion at at position: {}, {}".format(POS, gen)
+
+                        #else it's a NC; see if all alts have a length of 1
+                        #(meaning a simple 1bp mutation), if so then replace with N
+                        elif len(ALT)==len("".join(ALT)):
+                            alt = 'N'
+                            if seq not in sequences.keys():
+                                sequences[seq] = {}
+                            sequences[seq][pos] = alt
+                            positions.append(pos)
+
+                        #else:  #else is a Nocall insertion, so ignore.
+                            #print "insertion at at position: {}, {}".format(POS, gen)
 
             elif line[0] == '#' and line[1] == 'C':
                 #header line, get all the information
@@ -254,14 +323,16 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
                 samps = header[sampLoc:]
                 nsamp = len(samps)
 
-
             #else you are a comment line, ignore.
-
-
 
     positions = np.array(positions)
     positions = np.unique(positions)
     positions = np.sort(positions)
+
+    if nsamp > len(sequences): #one or more are same as ref! so haven't been 'seen' yet
+        missings = set(samps).difference(sequences.keys())
+        for s in missings:
+            sequences[s] = {}
 
     refSeq = SeqIO.parse(ref_file, format='fasta').next()
     refSeqStr = str(refSeq.seq)
@@ -409,12 +480,12 @@ def read_in_DRMs(drm_file):
 #####################################################
 # date parsing and conversions
 #####################################################
-def parse_date(datein, fmt):
+def parse_date(datein, fmt, max_min_year=None):
     from datetime import datetime
     import numpy as np
     try:
         if 'XX' in datein:
-            min_date, max_date = ambiguous_date_to_date_range(datein, fmt)
+            min_date, max_date = ambiguous_date_to_date_range(datein, fmt, max_min_year)
             n_date = np.array((numerical_date(min_date), numerical_date(max_date)))
         else:
             tmp = datetime.strptime(datein, fmt).date()
@@ -432,7 +503,9 @@ def numerical_date(date):
     return date.year + days_in_year/365.25
 
 
-def ambiguous_date_to_date_range(mydate, fmt):
+def ambiguous_date_to_date_range(mydate, fmt, max_min_year=None):
+    #Can now be passed a 1- or 2-element list containing the minimum or minimum and maximum
+    #dates to be used in the range.
     from datetime import datetime
     sep = fmt.split('%')[1][-1]
     min_date, max_date = {}, {}
@@ -442,7 +515,14 @@ def ambiguous_date_to_date_range(mydate, fmt):
         f = 'year' if 'y' in field.lower() else ('day' if 'd' in field.lower() else 'month')
         if 'XX' in val:
             if f=='year':
-                return None, None
+                if max_min_year:
+                    min_date[f]=max_min_year[0]
+                    if len(max_min_year)>1:
+                        max_date[f]=max_min_year[1]
+                    elif len(max_min_year)==1:
+                        max_date[f]=4000 #will be replaced by 'today' below.
+                else:
+                    return None, None
             elif f=='month':
                 min_date[f]=1
                 max_date[f]=12
@@ -502,6 +582,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
         the_file.write("\t".join(header)+"\n")
 
     vcfWrite = []
+    errorPositions = []
+    explainedErrors = 0
 
     #now get the variable positions and calls for every sample (node)
     i=0
@@ -535,8 +617,6 @@ def write_VCF_style_alignment(tree_dict, file_name):
         pattern = np.array(pattern)
         pattern2 = np.array(pattern2)
 
-        #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])  #old way
-
         #if a deletion here, need to gather up all bases, and position before
         if any(pattern == '-'):
             if pos != 1:
@@ -548,7 +628,6 @@ def write_VCF_style_alignment(tree_dict, file_name):
                 print "WARNING: You have a deletion in the first position of your alignment. VCF format does not handle this well. Please check the output to ensure it is correct."
         else:
             #if there's a deletion in next pos, need gather up bases
-            #pattern2 = np.array([ sequences[k][pi+1] if pi+1 in sequences[k].keys() else '.' for k,v in sequences.iteritems() ])
             if any(pattern2 == '-'):
                 deleteGroup = True
 
@@ -571,8 +650,8 @@ def write_VCF_style_alignment(tree_dict, file_name):
             sites = []
             sites.append(pattern)
 
-            #gather all positions affected by deletion
-            while positions[i+1] == pi+1:
+            #gather all positions affected by deletion - but don't run off end of position list!
+            while (i+1) < len(positions) and positions[i+1] == pi+1:
                 i+=1
                 pi = positions[i]
                 #again, new method
@@ -583,7 +662,7 @@ def write_VCF_style_alignment(tree_dict, file_name):
                     except KeyError, e:
                         pattern.append(ref[pi])
                 pattern = np.array(pattern)
-                #pattern = np.array([ sequences[k][pi] if pi in sequences[k].keys() else ref[pi] for k,v in sequences.iteritems() ])
+
                 #This stops 'greedy' behaviour from putting mutations that happen to be
                 #next to deletions on the same line/position as deletions.
                 if any(pattern == '-'): #if part of deletion, append
@@ -598,9 +677,16 @@ def write_VCF_style_alignment(tree_dict, file_name):
             align = np.flipud(align)
 
             #get rid of deletions, and put '.' for calls that match ref
+            #5 Mar 18 - EBH - Only gets rid of gaps at ends. This breaks VCF convention.
+            #But otherwise it is really difficult to code..
             fullpat = []
             for pt in align:
-                pat = "".join(pt).replace('-','')
+                gp = len(pt)-1
+                while pt[gp] == '-':
+                    pt[gp] = ''
+                    gp-=1
+                pat = "".join(pt)
+                #pat = "".join(pt).replace('-','')
                 if pat == refb:
                     fullpat.append('.')
                 else:
@@ -622,19 +708,48 @@ def write_VCF_style_alignment(tree_dict, file_name):
             j+=1
         #Now convert these calls to #/# (VCF format)
         calls = [ j+"/"+j if j!='.' else '.' for j in pattern ]
+
+        #What if there's no variation at a variable site??
+        printPos = True
         if len(uniques)==0:
-            print "util.py: UNEXPECTED ERROR WHILE CONVERTING TO VCF AT POSITION {}. No variation!".format(str(pi))
-            #break   #keep going, as every other site should be fine...
+            #if we expect it (it was made constant by TreeTime), it's fine.
+            if 'inferred_const_sites' in tree_dict and pi in tree_dict['inferred_const_sites']:
+                explainedErrors += 1
+                printPos = False #and don't print it
+            else:
+                #if we don't expect, raise an error
+                errorPositions.append(str(pi))
 
         #put it all together and write it out!
         #increment positions by 1 so it's in VCF numbering not python numbering
         output = ["MTB_anc", str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
 
-        vcfWrite.append("\t".join(output))
+        if printPos:  #but don't write out if its no longer variable - and explained
+            vcfWrite.append("\t".join(output))
 
-        #with open(file_name, 'a') as the_file:
-        #    the_file.write("\t".join(output)+"\n")
         i+=1
+
+    #Note: The number of 'inferred_const_sites' passed back by TreeTime will often be longer
+    #than the number of 'site that were made constant' that prints below. This is because given the site:
+    # Ref   Alt     Seq
+    # G     A       AANAA
+    #This will be converted to 'AAAAA' and listed as an 'inferred_const_sites'. However, for VCF
+    #purposes, because the site is 'variant' against the ref, it is variant, as expected, and so
+    #won't be counted in the below list, which is only sites removed from the VCF.
+
+    if 'inferred_const_sites' in tree_dict and explainedErrors != 0:
+        print "Sites that were constant except for ambiguous bases were made constant by TreeTime. This happened {} times. These sites are now excluded from the VCF.".format(explainedErrors)
+
+    if len(errorPositions) != 0:
+        print ("\n***UNEXPECTED ERROR!! util.py: write_VCF_style_alignment"
+            "\n{} sites were found that had no alternative bases. If this data has been "
+            "run through TreeTime and contains ambiguous bases, try calling get_tree_dict with "
+            "var_ambigs=True to see if this clears the error."
+            "\nIf it does not, or if the data hasn't come from TreeTime, something unexpected "
+            "is happening and you should debug. In TreeTime, this can be caused by overwriting "
+            "variants in tips with small branch lengths."
+            "\nThese are the positions affected (numbering starts at 0):").format(str(len(errorPositions)))
+        print ",".join(errorPositions)
 
     with open(file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))

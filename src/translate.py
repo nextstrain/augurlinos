@@ -36,6 +36,12 @@ def translate(aln_fname, reference, name_func, feature_names=None):
 
 
 def translate_vcf_feature(sequences, ref, feature):
+
+    def str_reverse_comp(str_seq):
+        #gets reverse-compliment of a string and returns it as a string
+        seq_str = Seq(str_seq)
+        return str(seq_str.reverse_complement())
+
     prot = {}
     prot['sequences'] = {}
     prot['positions'] = []
@@ -51,7 +57,10 @@ def translate_vcf_feature(sequences, ref, feature):
         #get positions where diffs
         varSite = np.array(sequences[seqk].keys())
         #reduce to only those within current gene
-        geneVarSites = np.logical_and(varSite >= start, varSite < end)
+        if feature.strand == -1:
+            geneVarSites = np.logical_and(varSite > start, varSite <= end)
+        else:
+            geneVarSites = np.logical_and(varSite >= start, varSite < end)
         #translate this back to nuc position
         nucVarSites = varSite[geneVarSites]
         #get it in position within the gene! - because whole genome may not be in frame!! But we must assume gene is..
@@ -59,7 +68,13 @@ def translate_vcf_feature(sequences, ref, feature):
 
         #Translate the codon this nuc diff is in, and find out which AA loc
         #But need numbering to be w/in protin, not whole genome!
-        aaRepLocs = {i//3:safe_translate( "".join([sequences[seqk][key+start]
+        if feature.strand == -1:
+            aaRepLocs = {(end-start-i)//3:safe_translate( str_reverse_comp( "".join([sequences[seqk][key+start]
+                                    if key+start in sequences[seqk].keys() else ref[key+start]
+                                for key in range(i-i%3,i+3-i%3)]) ))
+                            for i in genNucSites}
+        else:
+            aaRepLocs = {i//3:safe_translate( "".join([sequences[seqk][key+start]
                                 if key+start in sequences[seqk].keys() else refNuc[key]
                             for key in range(i-i%3,i+3-i%3)]) )
                         for i in genNucSites}
