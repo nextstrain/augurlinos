@@ -44,17 +44,7 @@ def tree_to_json(node, extra_attr = []):
 
 def attach_tree_meta_data(T, node_meta):
     def parse_mutations(muts):
-        allMut = muts.split(',') if type(muts) in [str, unicode] else ""
-        realMut=[]
-        #This exclude gaps from displaying in Auspice. They're ignored, in
-        #treebuilding anyway, and clutter up display/prevent from seeing real ones
-        for m in allMut:
-            if '-' not in m:
-                realMut.append(m)
-        if len(realMut)==0:
-            realMut = [""]
-        return realMut
-        #return muts.split(',') if type(muts) in [str, unicode] else ""
+        return muts.split(',') if type(muts) in [str, unicode] else ""
 
     for n in T.find_clades(order='preorder'):
         n.attr={}
