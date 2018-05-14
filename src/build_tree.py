@@ -98,7 +98,7 @@ def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
 
 
     tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal,
-           resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
+        resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
 
 
 
@@ -139,7 +139,8 @@ def export_sequence_fasta(T, path):
 
 def export_sequence_VCF(tt, path, var_ambigs=False):
     tree_dict = tt.get_tree_dict(var_ambigs)
-    write_VCF_style_alignment(tree_dict, tree_vcf_alignment(path,'nuc'))
+    #in new augur, set 'compress' based on input file ending!
+    write_VCF_style_alignment(tree_dict, tree_vcf_alignment(path,'nuc'), compress=False)
 
 
 def write_out_variable_fasta(compress_seq, path, drmfile=None):

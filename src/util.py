@@ -88,7 +88,7 @@ def collect_tree_meta_data(T, fields, isvcf=False, meta=None):
 
     return meta
 
-def read_in_vcf(vcf_file, ref_file, compressed=True):
+def read_in_vcf(vcf_file, ref_file):
     """
     Reads in a vcf.gz file (or vcf if compressed is False) and associated
     reference sequence fasta (to which the VCF file is mapped)
@@ -169,7 +169,8 @@ def read_in_vcf(vcf_file, ref_file, compressed=True):
     altLoc = 0
     sampLoc = 9
 
-    if compressed: #must use 2 diff functions depending on compressed or not
+    #Use different openers depending on whether compressed
+    if vcf_file.endswith(('.gz', '.GZ')):
         opn = gzip.open
     else:
         opn = open
@@ -561,7 +562,7 @@ def write_json(data, file_name, indent=1):
         json.dump(data, handle, indent=indent)
         handle.close()
 
-def write_VCF_style_alignment(tree_dict, file_name):
+def write_VCF_style_alignment(tree_dict, file_name, compress=False):
     """
     Writes out a VCF-style file (which seems to be minimally handleable
     by vcftools and pyvcf) of the alignment from the input of a dict
@@ -754,6 +755,12 @@ def write_VCF_style_alignment(tree_dict, file_name):
     with open(file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
 
+    if compress:
+        import os
+        call = ["gzip", file_name]
+        os.system(" ".join(call))
+
+
 
 ########################################
 # translation
@@ -914,7 +921,7 @@ def load_features(reference, feature_names=None):
     return features
 
 
-def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
+def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name, compress=False):
     """
     Writes out a VCF-style file (which seems to be minimally handleable
     by vcftools and pyvcf) of the AA differences between sequences and the reference.
@@ -990,6 +997,10 @@ def write_VCF_translation(prot_dict, vcf_file_name, ref_file_name):
     with open(vcf_file_name, 'a') as the_file:
         the_file.write("\n".join(vcfWrite))
 
+    if compress:
+        import os
+        call = ["gzip", vcf_file_name]
+        os.system(" ".join(call))
 
 def load_lat_long_defs():
     places = {}

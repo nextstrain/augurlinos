@@ -159,7 +159,7 @@ if __name__ == '__main__':
     import time
     start = time.time()
 
-    compress_seq = read_in_vcf(tree_vcf_alignment(path), ref_fasta(path), compressed=False)
+    compress_seq = read_in_vcf(tree_vcf_alignment(path), ref_fasta(path))
 
     sequences = compress_seq['sequences']
     positions = compress_seq['positions']
