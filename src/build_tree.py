@@ -39,7 +39,7 @@ def build_fasttree(aln_file, out_file, clean_up=True):
 
 
 def build_iqtree(aln_file, out_file, iqmodel, clean_up=True, nthreads=2):
-    #return Phylo.read(out_file.replace(".nwk",".iqtree.nwk"), 'newick') #uncomment for debug skip straight to TreeTime
+    return Phylo.read(out_file.replace(".nwk",".iqtree.nwk"), 'newick') #uncomment for debug skip straight to TreeTime
     if iqmodel:
         call = ["iqtree", "-nt", str(nthreads), "-s", aln_file, "-m", iqmodel[0],
             ">", "iqtree.log"]
@@ -96,12 +96,16 @@ def timetree(tree=None, aln=None, ref=None, seq_meta=None, keeproot=False,
     if ref != None: #if VCF, fix pi
         pi = np.array([0.1618, 0.3188, 0.3176, 0.1618, 0.04]) #from real runs (Walker 2018)
 
+    #for lee 2015
+    #tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal, #relaxed_clock={"slack":1e-8, "coupling":1e-8}, #fixed_clock_rate=1.3e-7,
+     #  resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
 
     tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal,
-           resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
+        resolve_polytomies=resolve_polytomies, max_iter=max_iter, fixed_pi=pi, **kwarks)
 
-
-
+    #for walker 2018
+    #tt.run(infer_gtr=infer_gtr, root=reroot, Tc=Tc, time_marginal=marginal, relaxed_clock={"slack":1e-6, "coupling":1e-6}, fixed_clock_rate=3.5e-7, #relaxed_clock={"slack":None, "coupling":None}, #fixed_clock_rate=0.000001,
+    #   resolve_polytomies=False, max_iter=max_iter, fixed_pi=pi, **kwarks)
 
 
     for n in T.find_clades():
