@@ -156,6 +156,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     path = args.path
 
+    import time
+    start = time.time()
+
     compress_seq = read_in_vcf(tree_vcf_alignment(path), ref_fasta(path), compressed=False)
 
     sequences = compress_seq['sequences']
@@ -184,4 +187,5 @@ if __name__ == '__main__':
     with open(drm_color_maps(path), 'w') as the_file:
         the_file.write("\n".join(newColAdds))
 
-
+    end = time.time()
+    print "DRM processing took {}".format(str(end-start))

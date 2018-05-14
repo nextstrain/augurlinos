@@ -192,6 +192,7 @@ def get_amino_acid_mutations(tree, fname):
 def assign_amino_acid_muts_vcf(prots, path):
     tree_meta = read_tree_meta_data(path)
     seqNames = prots[prots.keys()[0]]['sequences'].keys()
+    excluded = []
 
     #go through every gene in the prots nested dict
     for fname, prot in prots.iteritems():
@@ -210,18 +211,29 @@ def assign_amino_acid_muts_vcf(prots, path):
 
             pattern = [ refb+str(pos)+sequences[k][pi] if pi in sequences[k].keys()
                         else "" for k,v in sequences.iteritems() ]
-            pats.append(pattern)
+
+            #if the exact same mutation in all sequences, don't include! (only mutant against ref..)
+            if not (len(pattern)==len(sequences) and len(np.unique(pattern))==1):
+                pats.append(pattern)
             i+=1
 
         #convert our list of lists to matrix
         patMat = np.matrix(pats)
 
-        #for every sequence, assign the mutations in tree_meta
-        for i in xrange(len(seqNames)):
-            node_name = seqNames[i]
-            ary = np.array(patMat[:,i]).reshape(-1,)
-            tree_meta[node_name][fname+'_mutations'] = ",".join(ary[ary != ''])
+        #don't include if all the mutations identical across sequences! (only mutant against ref..)
+        if len(pats) != 0:
+            #for every sequence, assign the mutations in tree_meta
+            for i in xrange(len(seqNames)):
+                node_name = seqNames[i]
+                ary = np.array(patMat[:,i]).reshape(-1,)
+                tree_meta[node_name][fname+'_mutations'] = ",".join(ary[ary != ''])
+        else:
+            excluded.append(fname)
 
+    if len(excluded) != 0:
+        print "{} genes do not differ across the tree. They will not be added to tree meta-data or shown in auspice".format(len(excluded))
+        
+            
     #write it out!
     write_tree_meta_data(path, tree_meta)
 
