@@ -114,7 +114,7 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
     import time
     start = time.time()
     try:
-        vcf_dict = read_in_vcf(vcf_fname, ref_fasta(path), compressed=False )
+        vcf_dict = read_in_vcf(vcf_fname, ref_fasta(path))
     except:
         print "Loading input alignment failed!: {}".format(vcf_fname)
     end = time.time()
@@ -153,7 +153,8 @@ def translate_vcf(vcf_fname, reference, path, feature_names=None):
 
     start = time.time()
     #print out VCF of proteins
-    write_VCF_translation(prots, translation_vcf_file(path), translation_ref_file(path))
+    #in new augur, set compress depending on input file ending!
+    write_VCF_translation(prots, translation_vcf_file(path), translation_ref_file(path), compress=False)
     end = time.time()
     print "Writing out VCF took {}".format(str(end-start))
 
@@ -232,8 +233,8 @@ def assign_amino_acid_muts_vcf(prots, path):
 
     if len(excluded) != 0:
         print "{} genes do not differ across the tree. They will not be added to tree meta-data or shown in auspice".format(len(excluded))
-        
-            
+
+
     #write it out!
     write_tree_meta_data(path, tree_meta)
 
