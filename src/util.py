@@ -609,7 +609,71 @@ def write_VCF_style_alignment(tree_dict, file_name, compress=False):
     sequences = tree_dict['sequences']
     ref = tree_dict['reference']
     positions = tree_dict['positions']
+    
+    def handleDeletions(i, pi, pos, ref, delete, pattern):
+        refb = ref[pi]
+        if delete: #Need to get the position before
+            i-=1    #As we'll next go to this position again
+            pi-=1
+            pos = pi+1
+            refb = ref[pi]
+            #re-get pattern
+            pattern = []
+            for k,v in sequences.iteritems():
+                try:
+                    pattern.append(sequences[k][pi])
+                except KeyError, e:
+                    pattern.append(ref[pi])
+            pattern = np.array(pattern)
 
+        sites = []
+        sites.append(pattern)
+
+        #Gather all positions affected by deletion - but don't run off end of position list
+        while (i+1) < len(positions) and positions[i+1] == pi+1:
+            i+=1
+            pi = positions[i]
+            pattern = []
+            for k,v in sequences.iteritems():
+                try:
+                    pattern.append(sequences[k][pi])
+                except KeyError, e:
+                    pattern.append(ref[pi])
+            pattern = np.array(pattern)
+
+            #Stops 'greedy' behaviour from adding mutations adjacent to deletions 
+            if any(pattern == '-'): #if part of deletion, append
+                sites.append(pattern)
+                refb = refb+ref[pi]
+            else: #this is another mutation next to the deletion!
+                i-=1    #don't append, break this loop
+
+        #Rotate them into 'calls'
+        sites = np.asarray(sites)
+        align = np.rot90(sites)
+        align = np.flipud(align)
+
+        #Get rid of '-', and put '.' for calls that match ref
+        #Only removes trailing '-'. This breaks VCF convension, but the standard
+        #VCF way of handling this* is really complicated, and the situation is rare.
+        #(*deletions and mutations at the same locations)
+        fullpat = []
+        for pt in align:
+            gp = len(pt)-1
+            while pt[gp] == '-':
+                pt[gp] = ''
+                gp-=1
+            pat = "".join(pt)
+            if pat == refb:
+                fullpat.append('.')
+            else:
+                fullpat.append(pat)
+
+        pattern = np.array(fullpat)
+
+        return i, pi, pos, refb, pattern
+
+        
     #prepare the header of the VCF & write out
     header=["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT"]+sequences.keys()
     with open(file_name, 'w') as the_file:
@@ -672,65 +736,7 @@ def write_VCF_style_alignment(tree_dict, file_name, compress=False):
 
         #If deletion, treat affected bases as 1 'call':
         if delete or deleteGroup:
-            if delete: #Need to get the position before
-                i-=1    #As we'll next go to this position again
-                pi-=1
-                pos = pi+1
-                refb = ref[pi]
-                #re-get pattern
-                pattern = []
-                for k,v in sequences.iteritems():
-                    try:
-                        pattern.append(sequences[k][pi])
-                    except KeyError, e:
-                        pattern.append(ref[pi])
-                pattern = np.array(pattern)
-
-            sites = []
-            sites.append(pattern)
-
-            #Gather all positions affected by deletion - but don't run off end of position list
-            while (i+1) < len(positions) and positions[i+1] == pi+1:
-                i+=1
-                pi = positions[i]
-                pattern = []
-                for k,v in sequences.iteritems():
-                    try:
-                        pattern.append(sequences[k][pi])
-                    except KeyError, e:
-                        pattern.append(ref[pi])
-                pattern = np.array(pattern)
-
-                #Stops 'greedy' behaviour from adding mutations adjacent to deletions 
-                if any(pattern == '-'): #if part of deletion, append
-                    sites.append(pattern)
-                    refb = refb+ref[pi]
-                else: #this is another mutation next to the deletion!
-                    i-=1    #don't append, break this loop
-
-            #Rotate them into 'calls'
-            sites = np.asarray(sites)
-            align = np.rot90(sites)
-            align = np.flipud(align)
-
-            #Get rid of '-', and put '.' for calls that match ref
-            #Only removes trailing '-'. This breaks VCF convension, but the standard
-            #VCF way of handling this* is really complicated, and the situation is rare.
-            #(*deletions and mutations at the same locations)
-            fullpat = []
-            for pt in align:
-                gp = len(pt)-1
-                while pt[gp] == '-':
-                    pt[gp] = ''
-                    gp-=1
-                pat = "".join(pt)
-                if pat == refb:
-                    fullpat.append('.')
-                else:
-                    fullpat.append(pat)
-
-            pattern = np.array(fullpat)
-
+            i, pi, pos, refb, pattern = handleDeletions(i, pi, pos, ref, delete, pattern)
         #If no deletion, replace ref with '.', as in VCF format
         else: 
             pattern[pattern==refb] = '.'
@@ -759,11 +765,10 @@ def write_VCF_style_alignment(tree_dict, file_name, compress=False):
                 #If we don't expect, raise an error
                 errorPositions.append(str(pi))
 
-        #Write it out
-        #Increment positions by 1 so it's in VCF numbering not python numbering
-        output = ["MTB_anc", str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
-
-        if printPos:  #Don't write out position if its no longer variable - and explained
+        #Write it out - Increment positions by 1 so it's in VCF numbering
+        #If no longer variable, and explained, don't write it out
+        if printPos:  
+            output = ["MTB_anc", str(pos), ".", refb, ",".join(uniques), ".", "PASS", ".", "GT"] + calls
             vcfWrite.append("\t".join(output))
 
         i+=1
