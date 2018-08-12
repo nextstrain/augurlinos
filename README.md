@@ -1,5 +1,7 @@
 ## Augurlinos: a collection of modules for molecular epidemiology
 
+_This repo was a prototype of how to strip down augur into a series of interacting modules. All development has moved to the [augur](https://github.com/nextstrain/augur) repository._
+
 #### Quickstart
 Put a `zika.fasta` into `zika/data` and run
 
@@ -22,5 +24,3 @@ Different steps of a build produce standard files (alignments in fasta format, t
   * frequencies and titers at not yet done (easy)
   * support for multiple segments is missing
   * prepare doesn't do anything meaningful.
-
-
