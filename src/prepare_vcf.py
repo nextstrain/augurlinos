@@ -39,13 +39,24 @@ def mask_sites(path, ref, strip_loci):
         maskedRef[(m.ChromStart-1):m.ChromEnd] = 'N'
 
     #need to get the CHROM name from the VCF file..
-    with gzip.open(recode_gzvcf_name(path)) as f:
-        for line in f:
-            if line[0] != '#':
-                line = line.strip()
-                header = line.split('\t')
-                chromName = header[0]
-                break
+    #First try with normal open, then gzip - don't know file name at this point.
+    #In new augur this can look at file ending - here cannot as fixed in filenames.py!!
+    try:
+        with gzip.open(recode_gzvcf_name(path)) as f:
+            for line in f: #unknown quantity of comment at start of file
+                if line[0] != '#':
+                    line = line.strip()
+                    header = line.split('\t')
+                    chromName = header[0]
+                    break
+    except IOError as error:
+        with open(recode_gzvcf_name(path)) as f:
+            for line in f:
+                if line[0] != '#':
+                    line = line.strip()
+                    header = line.split('\t')
+                    chromName = header[0]
+                    break
 
     exclude = []
     for i in xrange(len(maskArray)):
@@ -75,7 +86,7 @@ if __name__ == '__main__':
     import time
     start = time.time()
 
-    parser = generic_argparse("parse gzvcf file and meta_data to drop samples")
+    parser = generic_argparse("parse vcf/vcf.gz file and meta_data to drop samples")
     parser.add_argument("--gzvcf", required=True, type=str,
                         help = "file with input sequences as gunzipped vcf")
     parser.add_argument("--ref", required=True, type=str,
@@ -85,13 +96,23 @@ if __name__ == '__main__':
     args = parser.parse_args()
     path = args.path
 
+    #set appropriate arg to VCFTools depending on input file
+    #and set output params.
+    #In new augur, will also want output ending (.vcf or .vcf.gz) set here
+    vcfInCall = "--vcf"
+    vcfOutCall = ""
+    if args.gzvcf.endswith(('.gz', '.GZ')):
+        vcfInCall = "--gzvcf"
+        vcfOutCall = "| gzip -c"
+
     #VCFTools doesn't make directories if they don't exist
     if not os.path.isdir(results_dir(path)):
         os.makedirs(results_dir(path))
 
     #First copy to recode and rename and put in results
-    call = ["vcftools --gzvcf", args.gzvcf, "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
-    #print("VCFTools call:")
+    #This is not *necessary* except to rename in augurlinos and move - but does not HAVE
+    #to go through vcftools to be readable in further steps (build_tree.py) -- in new augur
+    call = ["vcftools", vcfInCall, args.gzvcf, "--recode --stdout", vcfOutCall,">", recode_gzvcf_name(path)]
     print(" ".join(call))
     os.system(" ".join(call))
 
@@ -105,7 +126,7 @@ if __name__ == '__main__':
         #so create a copy we'll delete in a few lines
         #This uses the 'mask' file to remove the sites from the VCF
         copyfile(recode_gzvcf_name(path), recode_gzvcf_name(path)+"_temp")
-        call = ["vcftools", "--exclude-positions", maskRefFile, "--gzvcf", recode_gzvcf_name(path)+"_temp", "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
+        call = ["vcftools", "--exclude-positions", maskRefFile, vcfInCall, recode_gzvcf_name(path)+"_temp", "--recode --stdout", vcfOutCall, ">", recode_gzvcf_name(path)]
         print("Removing masked sites from VCF file... this may take some time.")
         os.system(" ".join(call))
         os.remove(recode_gzvcf_name(path)+"_temp")
@@ -114,13 +135,13 @@ if __name__ == '__main__':
     ###Get any sequences to be dropped
     dropped_strains = get_dropped_strains(path)
 
-    #if some dropped, remove them in a loop
+    #if some dropped, remove them
     if len(dropped_strains) != 0:
         #for some reason vcftools doesn't seem to work if input and output are the same file
         #so create a copy we'll delete in a few lines
         copyfile(recode_gzvcf_name(path), recode_gzvcf_name(path)+"_temp")
         toDrop = " ".join(["--remove-indv "+s for s in dropped_strains])
-        call = ["vcftools", toDrop, "--gzvcf", recode_gzvcf_name(path)+"_temp", "--recode --stdout | gzip -c >", recode_gzvcf_name(path)]
+        call = ["vcftools", toDrop, vcfInCall, recode_gzvcf_name(path)+"_temp", "--recode --stdout", vcfOutCall, ">", recode_gzvcf_name(path)]
         print(" ".join(call))
         os.system(" ".join(call))
         os.remove(recode_gzvcf_name(path)+"_temp")
